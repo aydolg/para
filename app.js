@@ -10,6 +10,9 @@
    - Trend yüzdesi hesaplaması düzenlendi
    - Küçük syntax tutarsızlıkları giderildi
    - Genel stabilite iyileştirildi
+   - Loader ("veriler analiz ediliyor") göster/gizle akışı eklendi
+   - Modal sekme tıklamasında `queryselectorAll` → `querySelectorAll` düzeltildi
+   - PapaParse yüklü değilse güvenli hata mesajı
 */
 
 /* =========================================================
@@ -30,12 +33,14 @@ const qs = (s, r=document) => r.querySelector(s);
 const qsa = (s, r=document) => [...r.querySelectorAll(s)];
 const cleanStr = (s)=> s? s.toString().trim().replace(/\s+/g," ") : "";
 const sum = (arr,key)=> arr.reduce((a,b)=> a+(b[key]||0),0);
-function toNumber(v){ if(!v) return 0; const s=v.toString().replace(/[^0-9,.-]/g,"").replace(/\./g,"").replace(",","."); return parseFloat(s)||0; }
+function toNumber(v){ if(!v && v!==0) return 0; const s=v.toString().replace(/[^0-9,.-]/g,"").replace(/\./g,"").replace(",","."); return parseFloat(s)||0; }
 const formatTRY = (n)=> (n||0).toLocaleString("tr-TR",{maximumFractionDigits:0})+" ₺";
-function showToast(m){ const t=qs('#toast'); if(!t) return; t.textContent=m; t.hidden=false; setTimeout(()=>t.hidden=true,2000); }
+function showToast(m){ const t=qs('#toast'); if(!t) return; t.textContent=m; t.hidden=false; setTimeout(()=>t.hidden=true,2200); }
 function lsGet(k,d){ try{ return JSON.parse(localStorage.getItem(k))??d }catch{return d;} }
 function lsSet(k,v){ try{ localStorage.setItem(k,JSON.stringify(v)) }catch{} }
 function clamp(n,min,max){ return Math.max(min,Math.min(max,n)); }
+function showLoader(msg="Veriler analiz ediliyor…"){ const l=qs('#loader'); if(!l) return; l.hidden=false; l.innerHTML = `<div class="loader-core"><div class="loader-ring"></div><div class="loader-text">${msg}</div></div>`; }
+function hideLoader(){ const l=qs('#loader'); if(!l) return; l.setAttribute('hidden',''); }
 
 /* =========================================================
    2) CSS ENJEKSİYONU
@@ -63,17 +68,22 @@ function validateHeaders(fields){
   const missing=req.filter(f=>!fields.includes(f));
   return {ok:missing.length===0,missing};
 }
-function showHeaderError(missing){ showToast("Eksik sütun: "+missing.join(', ')); }
+function showHeaderError(missing){ showToast("Eksik sütun: "+missing.join(', ')); const l=qs('#loader'); if(l){ l.hidden=false; l.innerHTML = `<div class="loader-core"><div class="loader-ring"></div><div class="loader-text" style="color:#ffb4b4">CSV sütunları eksik: ${missing.join(', ')}</div></div>`; } }
 
 /* =========================================================
    4) VERİ YÜKLEME
 ========================================================= */
 async function init(){
   try{
+    showLoader();
+    if (typeof Papa === 'undefined'){ throw new Error('PapaParse kütüphanesi yüklenmedi. Lütfen papaparse.min.js ekleyin.'); }
+
     const resp=await fetch(`${CSV_URL}&cache=${Date.now()}`);
+    if(!resp.ok) throw new Error(`CSV fetch hatası: ${resp.status}`);
     const txt=await resp.text();
+
     const parsed=Papa.parse(txt.trim(),{header:true,skipEmptyLines:true});
-    const fields=parsed.meta.fields;
+    const fields=parsed.meta.fields || Object.keys(parsed.data?.[0]||{});
     const vh=validateHeaders(fields);
     if(!vh.ok){ showHeaderError(vh.missing); return; }
 
@@ -87,8 +97,15 @@ async function init(){
 
     ensureUI();
     renderAll();
+    hideLoader();
     if(AUTO_REFRESH.enabled) startAutoRefresh();
-  }catch(e){ console.error(e); setTimeout(init,2000); }
+  }catch(e){
+    console.error(e);
+    const l=qs('#loader'); if(l){ l.hidden=false; l.innerHTML = `<div class="loader-core"><div class="loader-ring"></div><div class="loader-text" style="color:#ffb4b4">Yükleme hatası: ${e.message}</div><div class="small" style="opacity:.8">Bağlantıyı ve PapaParse dahilini kontrol edin.</div></div>`; }
+    showToast('Veri yüklenemedi');
+    // Otomatik tekrar dene ama sık değil
+    setTimeout(init,4000);
+  }
 }
 
 /* =========================================================
@@ -131,7 +148,7 @@ function ensureUI(){
     qs('#autoref').onchange=e=>{ AUTO_REFRESH.enabled=e.target.checked; e.target.checked? startAutoRefresh():stopAutoRefresh(); };
     qs('#arate').onchange=e=>{ AUTO_REFRESH.ms=+e.target.value; if(AUTO_REFRESH.enabled) startAutoRefresh(); };
   }
-  qs('#theme-select').value=THEME;
+  const th=qs('#theme-select'); if (th) th.value=THEME;
 
   if(!qs('#modal')){
     const m=document.createElement('div'); m.id='modal'; m.className='modal';
@@ -200,7 +217,7 @@ function openModal(item){
   updateInfo();
 
   b.querySelectorAll('.tab').forEach(btn=> btn.onclick=()=>{
-    b.queryselectorAll('.tab').forEach(x=>x.classList.remove('active'));
+    b.querySelectorAll('.tab').forEach(x=>x.classList.remove('active')); // <-- düzeltilmiş
     btn.classList.add('active'); mode=parseInt(btn.dataset.i);
     drawSparkline(canvas,series,mode); updateInfo();
   });
@@ -239,7 +256,6 @@ function computeDerived(x){ return {...x, kz:(x.guncelDeger-x.toplamYatirim)} }
 function applyFilterAndSort(list){
   let out=list;
 
-  // <-- CRITICAL FIX: FILTER_KZ kullanıldı
   if(FILTER_KZ==='pos') out=out.filter(x=>x.kz>=0);
   if(FILTER_KZ==='neg') out=out.filter(x=>x.kz<0);
 
