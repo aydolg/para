@@ -1,223 +1,889 @@
-/*
-  Dark Nebula Pro Max · style.css
-  Tema Seçimleri (Aydan):
-  1) Orta Neon  2) Güçlü Blur  3) Neon Border + Glow
-  4) %50 Performans Optimizasyonu  5) Neon Kenar Animasyonu  6) Ekstralar açık
-*/
+/**
+ * Portföy Terminali Pro Max - app.js (Stable v2.1)
+ * Hata düzeltmeleri: Loader takılması, async init, DOM kontrolü
+ */
 
-/* ------------------------------
-   0) Reset & Temel Ayarlar
------------------------------- */
-:root{
-  /* Renk Paleti */
-  --bg: #0b1220;
-  --bg-2: #0f182b;
-  --surface: #111827;
-  --surface-2: #0f1626;
-  --line: #1f2937;
-  --text: #e5e7eb;
-  --muted: #9aa3b2;
-  --pos: #22c55e;
-  --neg: #ef4444;
-  --accent: #3b82f6; /* Neon mavi */
-  --accent-2: #60a5fa; /* Açık neon */
-  --accent-glow: 0 0 24px rgba(59,130,246,.55), 0 0 64px rgba(59,130,246,.35);
+// ==================== KONFİGÜRASYON ====================
+const CONFIG = {
+  CSV_URL: "https://docs.google.com/spreadsheets/d/e/2PACX-1vQLPFVZn0j8Ygu914QDGRCGKsVy88gWjdk7DFi-jWiydmqYsdGUE4hEAb-R_IBzQmtFZwoMJFcN6rlD/pub?gid=1050165900&single=true&output=csv",
+  MAX_RETRIES: 3,
+  RETRY_DELAY: 1500,
+  VISIBLE_ITEMS: 50,
+  DEBOUNCE_DELAY: 200
+};
 
-  /* Efektler */
-  --blur: 18px; /* Güçlü blur */
-  --radius: 14px;
-  --radius-sm: 10px;
-  --radius-lg: 18px;
-  --shadow-soft: 0 1px 0 rgba(255,255,255,.02) inset, 0 10px 30px rgba(0,0,0,.35);
-  --shadow-strong: 0 10px 30px rgba(0,0,0,.55), 0 0 60px rgba(21, 120, 255, .12);
+// ==================== GLOBAL STATE ====================
+let state = {
+  data: [],
+  filtered: [],
+  active: "ALL",
+  cache: new Map(),
+  alerts: {},
+  sortKey: "default",
+  filterKz: "all",
+  autoRefresh: { enabled: false, ms: 60000, timer: null },
+  retryCount: 0,
+  visibleCount: CONFIG.VISIBLE_ITEMS,
+  searchQuery: "",
+  isLoading: false
+};
 
-  /* Tipografi */
-  --font: system-ui, -apple-system, Segoe UI, Roboto, "Helvetica Neue", Arial, sans-serif;
-  --fs-xxs: 10px; --fs-xs: 12px; --fs-sm: 13px; --fs-md: 14px; --fs-lg: 16px; --fs-xl: 18px;
-  --fw-bold: 800; --fw-600: 600; --fw-700:700;
+// ==================== YARDIMCI FONKSİYONLAR ====================
+const $ = (selector, context = document) => context.querySelector(selector);
+const $$ = (selector, context = document) => Array.from(context.querySelectorAll(selector));
 
-  /* Boyutlar */
-  --gutter: 10px; --gutter-lg: 16px;
-  --container: 1200px;
-
-  /* Animasyon Süreleri */
-  --dur-fast: .18s; --dur: .3s; --dur-slow: .6s;
+function cleanStr(str) {
+  return str ? String(str).trim().replace(/\s+/g, " ") : "";
 }
 
-*{box-sizing:border-box}
-html,body{height:100%}
-html{scroll-behavior:smooth}
-body{
-  margin:0; background: radial-gradient(1200px 800px at 75% -10%, rgba(59,130,246,.15), transparent 40%),
-            radial-gradient(800px 600px at 10% 10%, rgba(0,255,199,.08), transparent 40%),
-            var(--bg);
-  color:var(--text); font-family:var(--font); overflow-x:hidden;
-  -webkit-font-smoothing:antialiased; -moz-osx-font-smoothing:grayscale;
+function toNumber(val) {
+  if (!val) return 0;
+  const cleaned = String(val)
+    .replace(/[^\d,\.-]/g, "")
+    .replace(/\./g, "")
+    .replace(",", ".");
+  return parseFloat(cleaned) || 0;
 }
 
-img{max-width:100%; display:block}
-.sr-only{position:absolute;width:1px;height:1px;margin:-1px;border:0;padding:0;clip:rect(0 0 0 0);overflow:hidden}
-
-/* Skip link */
-.skip-link{position:absolute;left:-9999px;top:-9999px}
-.skip-link:focus{left:10px;top:10px;background:#000;padding:8px 10px;border-radius:8px;z-index:10000}
-
-/* ------------------------------
-   1) Genel Layout
------------------------------- */
-.app{max-width:var(--container); margin:0 auto; padding-bottom:40px}
-.section-title{margin:14px var(--gutter) 8px; font-size:var(--fs-xs); letter-spacing:.8px; text-transform:uppercase; opacity:.65}
-
-/* Sticky header with glass effect */
-.header-section{position:sticky; top:0; z-index:50; padding:10px; backdrop-filter: blur(var(--blur));
-  background: linear-gradient(to bottom, rgba(10,16,30,.82), rgba(10,16,30,.58));
-  border-bottom: 1px solid rgba(100,125,160,.2);
-  box-shadow: var(--shadow-soft);
+function formatTRY(num) {
+  if (isNaN(num)) return "0 ₺";
+  return Math.round(num).toLocaleString("tr-TR") + " ₺";
 }
 
-/* Summary grid */
-.grid-summary{display:grid; grid-template-columns:repeat(3,1fr); gap:8px; margin-bottom:10px; padding:0 var(--gutter)}
-
-/* Types & Periods */
-.grid-types{display:grid; grid-template-columns:repeat(auto-fill,minmax(120px,1fr)); gap:10px; padding:0 var(--gutter)}
-.grid-periods{display:grid; grid-template-columns:repeat(2,1fr); gap:10px; padding:0 var(--gutter)}
-
-/* Content section */
-.content-section{padding:0 var(--gutter)}
-
-/* Footer */
-.app-footer{padding:30px var(--gutter); color:var(--muted); text-align:center; opacity:.6}
-
-/* ------------------------------
-   2) Ticker (pürüzsüz akış)
------------------------------- */
-.ticker-wrap{position:sticky; top:0; z-index:60; display:flex; align-items:center; overflow:hidden;
-  background:linear-gradient(180deg, rgba(15,23,42,.9), rgba(15,23,42,.75));
-  border-bottom:1px solid rgba(100,125,160,.2);
-  backdrop-filter: blur(calc(var(--blur) * .7));
-}
-.ticker{display:flex; gap:0; white-space:nowrap; animation:ticker-move 35s linear infinite; will-change:transform}
-.ticker-item{display:flex; align-items:center; padding:10px 22px; font-weight:var(--fw-bold); font-size:16px;
-  border-right:1px solid rgba(255,255,255,.06); color:#cfe2ff}
-@keyframes ticker-move{0%{transform:translateX(0)}100%{transform:translateX(-50%)}}
-
-/* ------------------------------
-   3) Kartlar (Neon kenar + glow)
------------------------------- */
-.card{position:relative; border-radius:var(--radius); padding:12px; background:linear-gradient(145deg, var(--surface), var(--surface-2));
-  border:1px solid var(--line); box-shadow:var(--shadow-soft); overflow:hidden; transition:transform var(--dur), box-shadow var(--dur), border-color var(--dur)}
-.card:hover{transform:translateY(-1px); box-shadow:var(--shadow-strong)}
-
-/* Neon border */
-.card::before{content:""; position:absolute; inset:0; border-radius:inherit; padding:1px;
-  background:linear-gradient(120deg, rgba(59,130,246,.0), rgba(59,130,246,.55), rgba(59,130,246,.0));
-  -webkit-mask:linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
-  -webkit-mask-composite:xor; mask-composite: exclude; pointer-events:none; opacity:.65; transition:opacity var(--dur)}
-.card:hover::before{opacity:1}
-
-.small{font-size:10px; font-weight:600; opacity:.6; text-transform:uppercase}
-.big{font-size:14px; font-weight:800; margin-top:3px}
-.pos{color:var(--pos)}
-.neg{color:var(--neg)}
-
-/* Type cards (selectable) */
-.type-card{cursor:pointer; text-align:center; opacity:.85}
-.type-card.active{border-color:var(--accent); background:linear-gradient(180deg, rgba(59,130,246,.12), rgba(59,130,246,.06));
-  box-shadow:0 0 14px rgba(59,130,246,.35), inset 0 0 0 1px rgba(59,130,246,.25)}
-.type-card .big{font-size:12px}
-
-/* ------------------------------
-   4) Detay Listesi (Neon Kenar Animasyonu)
------------------------------- */
-.detail-list{display:flex; flex-direction:column; gap:10px; margin-top:8px}
-.detail-item{position:relative; display:flex; align-items:center; justify-content:space-between; gap:12px;
-  padding:12px; border:1px solid var(--line); border-radius:var(--radius); background:linear-gradient(145deg, rgba(17,24,39,.9), rgba(17,24,39,.7));
-  box-shadow:var(--shadow-soft); overflow:hidden}
-.detail-item::after{content:""; position:absolute; inset:0; border-radius:inherit; pointer-events:none; opacity:.85;
-  background: conic-gradient(from var(--grad, 0deg), rgba(59,130,246,.0), rgba(59,130,246,.55), rgba(59,130,246,.0) 28%);
-  mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
-  -webkit-mask:linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
-  padding:1px; -webkit-mask-composite:xor; mask-composite:exclude; animation:border-spin 6s linear infinite}
-@keyframes border-spin{to{--grad:360deg}}
-
-.detail-info div:first-child{font-weight:800; font-size:13px; color:#fff}
-.detail-info div:last-child{font-size:11px; opacity:.6}
-.detail-values{text-align:right}
-.detail-val{font-weight:800; font-size:13px}
-.detail-perc{font-size:11px; font-weight:700}
-
-/* ------------------------------
-   5) Arama Kutusu
------------------------------- */
-.search-row{position:sticky; top:calc(56px + 6px); z-index:45; padding:6px var(--gutter);
-  backdrop-filter:blur(calc(var(--blur) * .65)); margin:-4px 0 6px}
-.search{width:100%; padding:10px 12px; border-radius:10px; color:var(--text);
-  background:linear-gradient(180deg, rgba(17,24,39,.85), rgba(17,24,39,.65));
-  border:1px solid var(--line); outline:none; transition:border-color var(--dur), box-shadow var(--dur); box-shadow: inset 0 0 0 1px rgba(255,255,255,.02)}
-.search:focus{border-color:rgba(59,130,246,.7); box-shadow:0 0 0 3px rgba(59,130,246,.25), var(--shadow-soft)}
-
-/* ------------------------------
-   6) Loader
------------------------------- */
-.loader{position:fixed; inset:0; background:radial-gradient(1200px 800px at 70% -10%, rgba(59,130,246,.18), transparent 40%), var(--bg);
-  display:flex; justify-content:center; align-items:center; z-index:999; transition:opacity var(--dur-slow), visibility var(--dur-slow)}
-.loader[hidden]{opacity:0; visibility:hidden}
-.loader-core{display:flex; flex-direction:column; align-items:center; gap:14px}
-.loader-ring{width:62px; height:62px; border-radius:999px; border:2px solid rgba(255,255,255,.06); position:relative;
-  box-shadow:var(--accent-glow)}
-.loader-ring::before{content:""; position:absolute; inset:-2px; border-radius:inherit; border:2px solid transparent;
-  border-top-color:var(--accent); border-right-color:var(--accent-2); filter:drop-shadow(0 0 10px rgba(59,130,246,.6));
-  animation:spin 1.1s linear infinite}
-.loader-text{font-weight:800; color:#cfe2ff; letter-spacing:.4px}
-@keyframes spin{to{transform:rotate(360deg)}}
-
-/* ------------------------------
-   7) Toast / Bildirim
------------------------------- */
-.toast{position:fixed; right:14px; bottom:14px; max-width:min(420px, 90vw); padding:12px 14px; border-radius:12px;
-  background:linear-gradient(180deg, rgba(17,24,39,.92), rgba(17,24,39,.78)); color:var(--text);
-  border:1px solid rgba(100,125,160,.25); box-shadow:var(--shadow-strong)}
-
-/* ------------------------------
-   8) Erişilebilirlik / Odak
------------------------------- */
-:focus{outline:none}
-:focus-visible{outline:2px solid rgba(59,130,246,.8); outline-offset:2px}
-
-/* ------------------------------
-   9) Medya Sorguları (Responsive)
------------------------------- */
-@media (min-width: 520px){
-  .grid-periods{grid-template-columns:repeat(3,1fr)}
-}
-@media (min-width: 768px){
-  .grid-summary{grid-template-columns:repeat(4,1fr)}
-  .grid-periods{grid-template-columns:repeat(6,1fr)}
-}
-@media (min-width: 1024px){
-  .section-title{margin-left:var(--gutter-lg)}
-  .grid-summary, .grid-types, .grid-periods, .content-section{padding:0 var(--gutter-lg)}
+function formatPercent(num) {
+  if (isNaN(num)) return "0%";
+  const sign = num >= 0 ? "+" : "";
+  return sign + num.toFixed(2) + "%";
 }
 
-/* ------------------------------
-   10) Performans İyileştirmeleri (Repaint/Composite dostu)
------------------------------- */
-.ticker, .card, .detail-item, .loader, .search{will-change:transform}
+function sum(arr, key) {
+  return arr.reduce((acc, item) => acc + (item[key] || 0), 0);
+}
 
-/* ------------------------------
-   11) Yardımcı Sınıflar
------------------------------- */
-.badge{display:inline-flex; align-items:center; gap:6px; padding:4px 8px; border-radius:999px; font-size:11px; font-weight:700}
-.badge.pos{background:rgba(34,197,94,.15); color:var(--pos); border:1px solid rgba(34,197,94,.35)}
-.badge.neg{background:rgba(239,68,68,.12); color:var(--neg); border:1px solid rgba(239,68,68,.35)}
+// LocalStorage
+const storage = {
+  get(key, defaultVal = null) {
+    try {
+      const item = localStorage.getItem(key);
+      return item ? JSON.parse(item) : defaultVal;
+    } catch (e) {
+      console.warn("Storage read error:", e);
+      return defaultVal;
+    }
+  },
+  set(key, value) {
+    try {
+      localStorage.setItem(key, JSON.stringify(value));
+      return true;
+    } catch (e) {
+      console.warn("Storage write error:", e);
+      return false;
+    }
+  }
+};
 
-/* ------------------------------
-   12) Özet Kartları Özel Vurgu
------------------------------- */
-.grid-summary .card{min-height:64px}
-.grid-summary .card .big{font-size:15px}
+// Debounce
+function debounce(fn, wait) {
+  let timeout;
+  return function executedFunction(...args) {
+    const later = () => {
+      clearTimeout(timeout);
+      fn(...args);
+    };
+    clearTimeout(timeout);
+    timeout = setTimeout(later, wait);
+  };
+}
 
-/* ------------------------------
-   13) Tablolarda Metin Sarma (ileri kullanım)
------------------------------- */
-.wrap{white-space:normal; word-break:break-word}
+// ==================== TOAST SİSTEMİ ====================
+const Toast = {
+  element: null,
+  timeout: null,
+  
+  init() {
+    this.element = $("#toast");
+  },
+  
+  show(message, type = "info", duration = 3000) {
+    if (!this.element) return;
+    
+    // Reset
+    if (this.timeout) clearTimeout(this.timeout);
+    
+    // Set content and type
+    this.element.textContent = message;
+    this.element.className = `toast ${type}`;
+    this.element.hidden = false;
+    
+    // Auto hide
+    this.timeout = setTimeout(() => {
+      this.element.hidden = true;
+    }, duration);
+  },
+  
+  success(msg) { this.show(msg, "success"); },
+  error(msg) { this.show(msg, "error", 5000); },
+  warning(msg) { this.show(msg, "warning"); }
+};
+
+// ==================== LOADER YÖNETİMİ ====================
+const Loader = {
+  element: null,
+  textElement: null,
+  progressElement: null,
+  
+  init() {
+    this.element = $("#loader");
+    this.textElement = $("#loader-text");
+    this.progressElement = $("#loader-progress");
+  },
+  
+  setProgress(percent, text) {
+    if (this.textElement) this.textElement.textContent = text || "Yükleniyor...";
+    if (this.progressElement) this.progressElement.textContent = percent + "%";
+  },
+  
+  hide() {
+    if (this.element) {
+      this.element.setAttribute("hidden", "");
+      this.element.style.display = "none";
+    }
+    // Show app
+    const app = $("#app");
+    if (app) app.style.display = "block";
+  },
+  
+  showError(message) {
+    if (this.textElement) this.textElement.textContent = message;
+    if (this.progressElement) this.progressElement.textContent = "Hata";
+    this.element.style.background = "rgba(139, 0, 0, 0.9)";
+  }
+};
+
+// ==================== VERİ YÜKLEME ====================
+async function loadData() {
+  if (state.isLoading) return false;
+  state.isLoading = true;
+  
+  Loader.setProgress(10, "Bağlanıyor...");
+  
+  try {
+    // Fetch with timeout
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 10000);
+    
+    Loader.setProgress(30, "Veri çekiliyor...");
+    
+    const response = await fetch(`${CONFIG.CSV_URL}&t=${Date.now()}`, {
+      signal: controller.signal,
+      headers: { "Accept": "text/csv" }
+    });
+    
+    clearTimeout(timeoutId);
+    
+    if (!response.ok) {
+      throw new Error(`HTTP Hatası: ${response.status}`);
+    }
+    
+    Loader.setProgress(60, "İşleniyor...");
+    
+    const text = await response.text();
+    
+    if (!text || text.length < 100) {
+      throw new Error("Boş veri");
+    }
+    
+    // Parse CSV
+    const parsed = Papa.parse(text, {
+      header: true,
+      skipEmptyLines: true,
+      transformHeader: (h) => cleanStr(h).toLowerCase()
+    });
+    
+    Loader.setProgress(80, "Ayrıştırılıyor...");
+    
+    if (!parsed.data || parsed.data.length === 0) {
+      throw new Error("Veri bulunamadı");
+    }
+    
+    // Process data
+    state.data = parsed.data
+      .map(row => {
+        const obj = {};
+        for (let key in row) {
+          const cleanKey = cleanStr(key);
+          if (cleanKey === "urun" || cleanKey === "tur") {
+            obj[cleanKey] = cleanStr(row[key]);
+          } else {
+            obj[cleanKey] = toNumber(row[key]);
+          }
+        }
+        return obj;
+      })
+      .filter(item => item.urun && item.toplamYatirim > 0);
+    
+    if (state.data.length === 0) {
+      throw new Error("Geçerli veri yok");
+    }
+    
+    Loader.setProgress(100, "Tamamlandı");
+    state.retryCount = 0;
+    state.isLoading = false;
+    
+    // Kısa gecikme ile loader'ı gizle (smooth transition)
+    setTimeout(() => Loader.hide(), 300);
+    
+    return true;
+    
+  } catch (error) {
+    console.error("Veri yükleme hatası:", error);
+    state.isLoading = false;
+    
+    state.retryCount++;
+    
+    if (state.retryCount < CONFIG.MAX_RETRIES) {
+      Loader.setProgress(
+        Math.round((state.retryCount / CONFIG.MAX_RETRIES) * 100),
+        `Yeniden deneniyor... (${state.retryCount}/${CONFIG.MAX_RETRIES})`
+      );
+      
+      await new Promise(r => setTimeout(r, CONFIG.RETRY_DELAY));
+      return loadData();
+    } else {
+      Loader.showError(`Veri yüklenemedi: ${error.message}`);
+      Toast.error("Veri kaynağına ulaşılamıyor. Sayfayı yenileyin.");
+      return false;
+    }
+  }
+}
+
+// ==================== RENDER FONKSİYONLARI ====================
+function renderSummary() {
+  const container = $("#summary");
+  if (!container) return;
+  
+  const totalCost = sum(state.filtered, "toplamyatirim");
+  const currentValue = sum(state.filtered, "gunceldeger");
+  const profit = currentValue - totalCost;
+  const percent = totalCost ? ((profit / totalCost) * 100) : 0;
+  
+  container.innerHTML = `
+    <div class="card">
+      <div class="small">Toplam Maliyet</div>
+      <div class="big">${formatTRY(totalCost)}</div>
+    </div>
+    <div class="card">
+      <div class="small">Güncel Değer</div>
+      <div class="big">${formatTRY(currentValue)}</div>
+    </div>
+    <div class="card ${profit >= 0 ? 'pos' : 'neg'}">
+      <div class="small">K/Z</div>
+      <div class="big">${formatPercent(percent)}</div>
+      <div class="small" style="margin-top:4px">${formatTRY(profit)}</div>
+    </div>
+    <div class="card">
+      <div class="small">Ürün</div>
+      <div class="big">${state.filtered.length}</div>
+    </div>
+  `;
+}
+
+function renderTypes() {
+  const container = $("#types");
+  if (!container) return;
+  
+  const types = [...new Set(state.data.map(x => x.tur))].sort();
+  
+  let html = `
+    <div class="card type-card ${state.active === 'ALL' ? 'active' : ''}" 
+         data-type="ALL" role="button" tabindex="0">
+      <div class="small">TÜM PORTFÖY</div>
+      <div class="big">${state.data.length} Ürün</div>
+    </div>
+  `;
+  
+  types.forEach(type => {
+    const items = state.data.filter(x => x.tur === type);
+    const typeValue = sum(items, "gunceldeger");
+    const typeCost = sum(items, "toplamyatirim");
+    const profit = typeValue - typeCost;
+    
+    html += `
+      <div class="card type-card ${state.active === type ? 'active' : ''}" 
+           data-type="${type}" role="button" tabindex="0">
+        <div class="small">${type.toUpperCase()}</div>
+        <div class="big ${profit >= 0 ? 'pos' : 'neg'}">${formatTRY(profit)}</div>
+        <div style="font-size:10px;opacity:0.7;margin-top:4px">${items.length} ürün</div>
+      </div>
+    `;
+  });
+  
+  container.innerHTML = html;
+  
+  // Event listeners
+  $$(".type-card", container).forEach(card => {
+    const clickHandler = () => {
+      state.active = card.dataset.type;
+      state.visibleCount = CONFIG.VISIBLE_ITEMS;
+      applyFilters();
+    };
+    
+    card.addEventListener("click", clickHandler);
+    card.addEventListener("keydown", (e) => {
+      if (e.key === "Enter" || e.key === " ") {
+        e.preventDefault();
+        clickHandler();
+      }
+    });
+  });
+}
+
+function renderPeriods() {
+  const container = $("#periods");
+  if (!container) return;
+  
+  const periods = [
+    ["Günlük", "gunluk"],
+    ["Haftalık", "haftalik"],
+    ["Aylık", "aylik"],
+    ["3 Ay", "ucaylik"],
+    ["6 Ay", "altiaylik"],
+    ["1 Yıl", "biryillik"]
+  ];
+  
+  const currentValue = sum(state.filtered, "gunceldeger");
+  
+  let html = "";
+  periods.forEach(([label, key]) => {
+    const change = sum(state.filtered, key);
+    const previous = currentValue - change;
+    const percent = previous ? ((change / previous) * 100) : 0;
+    
+    html += `
+      <div class="card ${change >= 0 ? 'pos' : 'neg'}">
+        <div class="small">${label}</div>
+        <div class="big">${formatTRY(change)}</div>
+        <div style="font-size:11px;opacity:0.8;margin-top:4px">${formatPercent(percent)}</div>
+      </div>
+    `;
+  });
+  
+  container.innerHTML = html;
+}
+
+function renderDetails() {
+  const container = $("#detail-list");
+  if (!container) return;
+  
+  const totalValue = sum(state.data, "gunceldeger");
+  const toShow = state.filtered.slice(0, state.visibleCount);
+  
+  // Update title
+  const title = $("#detail-title");
+  if (title) {
+    title.textContent = state.active === "ALL" 
+      ? `📦 TÜM ÜRÜNLER (${state.filtered.length})`
+      : `📦 ${state.active.toUpperCase()} (${state.filtered.length})`;
+  }
+  
+  let html = "";
+  toShow.forEach((item, index) => {
+    const profit = item.gunceldeger - item.toplamyatirim;
+    const weight = totalValue ? ((item.gunceldeger / totalValue) * 100).toFixed(1) : 0;
+    const hasAlert = state.alerts[item.urun];
+    
+    html += `
+      <div class="detail-item" data-urun="${item.urun}" data-index="${index}" 
+           role="button" tabindex="0">
+        <div class="detail-info">
+          <div>
+            ${item.urun}
+            <span class="weight-badge">%${weight}</span>
+            ${hasAlert ? '<span style="margin-left:4px">🔔</span>' : ''}
+          </div>
+          <div style="font-size:11px;opacity:0.6">
+            Maliyet: ${formatTRY(item.toplamyatirim)} · ${item.tur}
+          </div>
+        </div>
+        <div class="detail-values">
+          <div class="detail-val">${formatTRY(item.gunceldeger)}</div>
+          <div class="detail-perc ${profit >= 0 ? 'pos' : 'neg'}">
+            ${formatTRY(profit)}
+          </div>
+        </div>
+      </div>
+    `;
+  });
+  
+  container.innerHTML = html;
+  
+  // Pagination
+  const pagination = $("#pagination");
+  if (pagination) {
+    pagination.hidden = state.visibleCount >= state.filtered.length;
+  }
+  
+  // Click handlers
+  $$(".detail-item", container).forEach(item => {
+    const handler = () => openModal(item.dataset.urun);
+    item.addEventListener("click", handler);
+    item.addEventListener("keydown", (e) => {
+      if (e.key === "Enter" || e.key === " ") {
+        e.preventDefault();
+        handler();
+      }
+    });
+  });
+}
+
+function renderTicker() {
+  const container = $("#ticker-content");
+  if (!container) return;
+  
+  const items = state.data.slice(0, 15);
+  let html = "";
+  
+  items.forEach(item => {
+    const daily = item.gunluk || 0;
+    const prev = item.gunceldeger - daily;
+    const percent = prev ? ((daily / prev) * 100) : 0;
+    const isPositive = daily >= 0;
+    
+    html += `
+      <div class="ticker-item" style="color: ${isPositive ? 'var(--pos)' : 'var(--neg)'}">
+        <span style="opacity:0.8">${item.urun}</span>
+        <span style="margin-left:6px">${formatPercent(percent)}</span>
+      </div>
+    `;
+  });
+  
+  // Duplicate for infinite scroll effect
+  container.innerHTML = html + html;
+}
+
+// ==================== FİLTRELEME VE SIRALAMA ====================
+function applyFilters() {
+  const cacheKey = `${state.active}_${state.sortKey}_${state.filterKz}_${state.searchQuery}`;
+  
+  if (state.cache.has(cacheKey)) {
+    state.filtered = state.cache.get(cacheKey);
+  } else {
+    let result = state.active === "ALL" 
+      ? [...state.data]
+      : state.data.filter(x => x.tur === state.active);
+    
+    // Search filter
+    if (state.searchQuery) {
+      const q = state.searchQuery.toLowerCase();
+      result = result.filter(x => 
+        x.urun.toLowerCase().includes(q) || 
+        x.tur.toLowerCase().includes(q)
+      );
+    }
+    
+    // K/Z filter
+    if (state.filterKz !== "all") {
+      result = result.filter(x => {
+        const profit = x.gunceldeger - x.toplamyatirim;
+        return state.filterKz === "pos" ? profit >= 0 : profit < 0;
+      });
+    }
+    
+    // Sort
+    const sorters = {
+      kzDesc: (a, b) => (b.gunceldeger - b.toplamyatirim) - (a.gunceldeger - a.toplamyatirim),
+      kzAsc: (a, b) => (a.gunceldeger - a.toplamyatirim) - (b.gunceldeger - b.toplamyatirim),
+      maliyetDesc: (a, b) => b.toplamyatirim - a.toplamyatirim,
+      guncelDesc: (a, b) => b.gunceldeger - a.gunceldeger,
+      nameAZ: (a, b) => a.urun.localeCompare(b.urun, "tr"),
+      nameZA: (a, b) => b.urun.localeCompare(a.urun, "tr")
+    };
+    
+    if (sorters[state.sortKey]) {
+      result.sort(sorters[state.sortKey]);
+    }
+    
+    state.filtered = result;
+    state.cache.set(cacheKey, result);
+  }
+  
+  state.visibleCount = CONFIG.VISIBLE_ITEMS;
+  renderAll();
+}
+
+function renderAll() {
+  renderSummary();
+  renderTypes();
+  renderPeriods();
+  renderDetails();
+  renderTicker();
+  checkAlerts();
+}
+
+// ==================== MODAL ====================
+function openModal(urun) {
+  const item = state.data.find(x => x.urun === urun);
+  if (!item) return;
+  
+  // Create modal if not exists
+  let modal = $("#product-modal");
+  if (!modal) {
+    modal = document.createElement("div");
+    modal.id = "product-modal";
+    modal.className = "modal";
+    modal.innerHTML = `
+      <div class="modal-backdrop"></div>
+      <div class="modal-card">
+        <div class="modal-header">
+          <div class="modal-title">Ürün Detayı</div>
+          <button class="modal-close" aria-label="Kapat">×</button>
+        </div>
+        <div class="modal-body"></div>
+      </div>
+    `;
+    document.body.appendChild(modal);
+    
+    modal.addEventListener("click", (e) => {
+      if (e.target.classList.contains("modal-backdrop") || 
+          e.target.classList.contains("modal-close")) {
+        closeModal();
+      }
+    });
+  }
+  
+  const body = modal.querySelector(".modal-body");
+  const totalValue = sum(state.data, "gunceldeger");
+  const profit = item.gunceldeger - item.toplamyatirim;
+  const weight = totalValue ? ((item.gunceldeger / totalValue) * 100).toFixed(1) : 0;
+  const alerts = state.alerts[item.urun] || {};
+  
+  body.innerHTML = `
+    <div class="modal-grid">
+      <div class="stat">
+        <div class="small">Ürün</div>
+        <div class="big" style="font-size:18px">${item.urun}</div>
+        <div style="margin-top:8px;font-size:12px;opacity:0.8">Tür: ${item.tur}</div>
+        <div style="font-size:12px;color:var(--accent)">Ağırlık: %${weight}</div>
+      </div>
+      <div class="stat">
+        <div class="small">Finansal</div>
+        <div class="big">Güncel: ${formatTRY(item.gunceldeger)}</div>
+        <div class="big">Maliyet: ${formatTRY(item.toplamyatirim)}</div>
+        <div class="big ${profit >= 0 ? 'pos' : 'neg'}">K/Z: ${formatTRY(profit)}</div>
+      </div>
+    </div>
+    
+    <div class="stat" style="margin-top:12px">
+      <div class="small">🔔 Uyarı Ayarları</div>
+      <div class="alert-form" style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:10px">
+        <div>
+          <label style="font-size:11px;opacity:0.7">Güncel Değer ≥</label>
+          <input type="number" id="alert-guncel" placeholder="100000" 
+                 value="${alerts.guncel || ''}" style="width:100%;padding:8px;margin-top:4px;border-radius:6px;border:1px solid var(--line);background:rgba(0,0,0,0.3);color:white">
+        </div>
+        <div>
+          <label style="font-size:11px;opacity:0.7">K/Z ≥</label>
+          <input type="number" id="alert-kz" placeholder="5000" 
+                 value="${alerts.kz || ''}" style="width:100%;padding:8px;margin-top:4px;border-radius:6px;border:1px solid var(--line);background:rgba(0,0,0,0.3);color:white">
+        </div>
+        <div>
+          <label style="font-size:11px;opacity:0.7">Günlük % ≥</label>
+          <input type="number" id="alert-daily" placeholder="2.5" step="0.1"
+                 value="${alerts.daily || ''}" style="width:100%;padding:8px;margin-top:4px;border-radius:6px;border:1px solid var(--line);background:rgba(0,0,0,0.3);color:white">
+        </div>
+      </div>
+      <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:12px">
+        <button class="btn" id="alert-delete" style="background:rgba(239,68,68,0.2);color:var(--neg)">Sil</button>
+        <button class="btn primary" id="alert-save">Kaydet</button>
+      </div>
+    </div>
+  `;
+  
+  // Event listeners
+  body.querySelector("#alert-save").addEventListener("click", () => {
+    const g = parseFloat($("#alert-guncel", body)?.value) || null;
+    const k = parseFloat($("#alert-kz", body)?.value) || null;
+    const d = parseFloat($("#alert-daily", body)?.value) || null;
+    
+    state.alerts[item.urun] = {
+      guncel: g,
+      kz: k,
+      daily: d
+    };
+    
+    storage.set("portfolio_alerts", state.alerts);
+    Toast.success("Uyarı kaydedildi");
+    renderDetails();
+  });
+  
+  body.querySelector("#alert-delete").addEventListener("click", () => {
+    delete state.alerts[item.urun];
+    storage.set("portfolio_alerts", state.alerts);
+    Toast.show("Uyarı silindi");
+    renderDetails();
+  });
+  
+  modal.classList.add("active");
+  document.body.style.overflow = "hidden";
+}
+
+function closeModal() {
+  const modal = $("#product-modal");
+  if (modal) {
+    modal.classList.remove("active");
+    document.body.style.overflow = "";
+  }
+}
+
+// ==================== UYARI KONTROLÜ ====================
+function checkAlerts() {
+  $$(".alert-pulse").forEach(el => el.classList.remove("alert-pulse"));
+  
+  let triggered = 0;
+  
+  state.data.forEach(item => {
+    const alert = state.alerts[item.urun];
+    if (!alert) return;
+    
+    const profit = item.gunceldeger - item.toplamyatirim;
+    const dailyChange = item.gunluk || 0;
+    const prevValue = item.gunceldeger - dailyChange;
+    const dailyPercent = prevValue ? ((dailyChange / prevValue) * 100) : 0;
+    
+    let hit = false;
+    if (alert.guncel && item.gunceldeger >= alert.guncel) hit = true;
+    if (alert.kz && profit >= alert.kz) hit = true;
+    if (alert.daily && dailyPercent >= alert.daily) hit = true;
+    
+    if (hit) {
+      triggered++;
+      const el = $(`.detail-item[data-urun="${CSS.escape(item.urun)}"]`);
+      if (el) el.classList.add("alert-pulse");
+    }
+  });
+  
+  if (triggered > 0) {
+    Toast.warning(`${triggered} ürün için uyarı tetiklendi!`);
+  }
+}
+
+// ==================== UI KURULUMU ====================
+function initUI() {
+  // Load saved data
+  state.alerts = storage.get("portfolio_alerts", {});
+  const savedRefresh = storage.get("portfolio_autorefresh", { enabled: false, ms: 60000 });
+  state.autoRefresh = { ...savedRefresh, timer: null };
+  
+  // Create toolbar
+  createToolbar();
+  
+  // Setup search
+  const searchInput = $("#search");
+  if (searchInput) {
+    searchInput.disabled = false;
+    searchInput.addEventListener("input", debounce((e) => {
+      state.searchQuery = e.target.value;
+      const clearBtn = $("#clear-search");
+      if (clearBtn) clearBtn.hidden = !state.searchQuery;
+      applyFilters();
+    }, CONFIG.DEBOUNCE_DELAY));
+  }
+  
+  // Clear search
+  $("#clear-search")?.addEventListener("click", () => {
+    if (searchInput) {
+      searchInput.value = "";
+      searchInput.focus();
+    }
+    state.searchQuery = "";
+    $("#clear-search").hidden = true;
+    applyFilters();
+  });
+  
+  // Load more
+  $("#load-more")?.addEventListener("click", () => {
+    state.visibleCount += CONFIG.VISIBLE_ITEMS;
+    renderDetails();
+  });
+  
+  // Export
+  $("#export-csv")?.addEventListener("click", exportCSV);
+  $("#export-csv").disabled = false;
+  
+  // Refresh
+  $("#refresh-data")?.addEventListener("click", async () => {
+    Toast.show("Yenileniyor...");
+    state.cache.clear();
+    const success = await loadData();
+    if (success) {
+      applyFilters();
+      Toast.success("Güncellendi");
+    }
+  });
+  $("#refresh-data").disabled = false;
+  
+  // Auto refresh on visibility change
+  document.addEventListener("visibilitychange", () => {
+    if (document.hidden) {
+      stopAutoRefresh();
+    } else if (state.autoRefresh.enabled) {
+      startAutoRefresh();
+    }
+  });
+}
+
+function createToolbar() {
+  const content = $(".content-section");
+  if (!content || $(".toolbar")) return;
+  
+  const toolbar = document.createElement("div");
+  toolbar.className = "toolbar";
+  toolbar.innerHTML = `
+    <div class="card" style="padding:12px">
+      <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap">
+        <div>
+          <label style="font-size:10px;opacity:0.7;text-transform:uppercase">Sıralama</label>
+          <select id="sort-select" style="margin-left:6px;padding:6px 10px;border-radius:6px;border:1px solid var(--line);background:rgba(0,0,0,0.3);color:white">
+            <option value="default">Varsayılan</option>
+            <option value="kzDesc">K/Z (Yüksek)</option>
+            <option value="kzAsc">K/Z (Düşük)</option>
+            <option value="maliyetDesc">Maliyet</option>
+            <option value="guncelDesc">Güncel Değer</option>
+            <option value="nameAZ">A-Z</option>
+            <option value="nameZA">Z-A</option>
+          </select>
+        </div>
+        <div style="display:flex;gap:8px;align-items:center">
+          <label style="font-size:10px;opacity:0.7">Filtre:</label>
+          <label style="display:flex;align-items:center;gap:4px;font-size:12px;cursor:pointer">
+            <input type="radio" name="kzfilter" value="all" checked> Tümü
+          </label>
+          <label style="display:flex;align-items:center;gap:4px;font-size:12px;cursor:pointer">
+            <input type="radio" name="kzfilter" value="pos"> K/Z +
+          </label>
+          <label style="display:flex;align-items:center;gap:4px;font-size:12px;cursor:pointer">
+            <input type="radio" name="kzfilter" value="neg"> K/Z -
+          </label>
+        </div>
+      </div>
+    </div>
+    <div class="card" style="padding:12px">
+      <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap">
+        <div>
+          <label style="font-size:10px;opacity:0.7;text-transform:uppercase">Oto-Yenile</label>
+          <label style="display:flex;align-items:center;gap:6px;margin-left:6px;cursor:pointer">
+            <input type="checkbox" id="autoref" ${state.autoRefresh.enabled ? 'checked' : ''}> Aç
+          </label>
+        </div>
+        <select id="arate" style="padding:6px 10px;border-radius:6px;border:1px solid var(--line);background:rgba(0,0,0,0.3);color:white">
+          <option value="30000" ${state.autoRefresh.ms === 30000 ? 'selected' : ''}>30 sn</option>
+          <option value="60000" ${state.autoRefresh.ms === 60000 ? 'selected' : ''}>1 dk</option>
+          <option value="300000" ${state.autoRefresh.ms === 300000 ? 'selected' : ''}>5 dk</option>
+        </select>
+      </div>
+    </div>
+  `;
+  
+  content.insertBefore(toolbar, content.firstChild);
+  
+  // Events
+  $("#sort-select")?.addEventListener("change", (e) => {
+    state.sortKey = e.target.value;
+    applyFilters();
+  });
+  
+  $$('input[name="kzfilter"]').forEach(radio => {
+    radio.addEventListener("change", (e) => {
+      state.filterKz = e.target.value;
+      applyFilters();
+    });
+  });
+  
+  $("#autoref")?.addEventListener("change", (e) => {
+    state.autoRefresh.enabled = e.target.checked;
+    storage.set("portfolio_autorefresh", { enabled: state.autoRefresh.enabled, ms: state.autoRefresh.ms });
+    state.autoRefresh.enabled ? startAutoRefresh() : stopAutoRefresh();
+  });
+  
+  $("#arate")?.addEventListener("change", (e) => {
+    state.autoRefresh.ms = parseInt(e.target.value);
+    storage.set("portfolio_autorefresh", { enabled: state.autoRefresh.enabled, ms: state.autoRefresh.ms });
+    if (state.autoRefresh.enabled) startAutoRefresh();
+  });
+}
+
+// ==================== OTO-YENİLEME ====================
+function startAutoRefresh() {
+  stopAutoRefresh();
+  if (document.hidden) return;
+  
+  state.autoRefresh.timer = setInterval(async () => {
+    if ($("#product-modal.active")) return;
+    
+    try {
+      await loadData();
+      state.cache.clear();
+      applyFilters();
+    } catch (e) {
+      console.warn("Oto-yenileme hatası:", e);
+    }
+  }, state.autoRefresh.ms);
+}
+
+function stopAutoRefresh() {
+  if (state.autoRefresh.timer) {
+    clearInterval(state.autoRefresh.timer);
+    state.autoRefresh.timer = null;
+  }
+}
+
+// ==================== EXPORT ====================
+function exportCSV() {
+  const headers = ["urun", "tur", "toplamyatirim", "gunceldeger", "gunluk", "haftalik", "aylik"];
+  const rows = state.filtered.map(item => 
+    headers.map(h => `"${item[h] || ''}"`).join(",")
+  );
+  
+  const csv = "\ufeff" + [headers.join(","), ...rows].join("\n");
+  const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `portfoy_${new Date().toISOString().slice(0,10)}.csv`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+  
+  Toast.success("CSV indirildi");
+}
+
+// ==================== BAŞLATMA ====================
+async function init() {
+  // Init components
+  Loader.init();
+  Toast.init();
+  
+  // Load data
+  const success = await loadData();
+  if (!success) return;
+  
+  // Setup UI
+  initUI();
+  
+  // Initial render
+  applyFilters();
+  
+  // Start auto-refresh if enabled
+  if (state.autoRefresh.enabled) {
+    startAutoRefresh();
+  }
+}
+
+// DOM Ready kontrolü
+if (document.readyState === "loading") {
+  document.addEventListener("DOMContentLoaded", init);
+} else {
+  init();
+}
