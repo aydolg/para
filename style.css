@@ -1,3 +1,13 @@
+/* Sadece bu kısmı dosyanızın EN BAŞINA ekleyin */
+
+@property --grad {
+  syntax: '<angle>';
+  initial-value: 0deg;
+  inherits: false;
+}
+
+/* Gerisi sizin orijinal CSS'niz - DEĞİŞTİRMEYİN */
+
 /*
   Dark Nebula Pro Max · style.css
   Tema Seçimleri (Aydan):
