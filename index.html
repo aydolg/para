@@ -5,29 +5,32 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
   <meta name="color-scheme" content="dark" />
   <meta name="theme-color" content="#0b1220" />
+  <meta name="description" content="Portföy Terminali Pro Max - Profesyonel yatırım takip uygulaması" />
   <title>Portföy Terminali Pro Max</title>
 
   <!-- Preconnect & Resources -->
   <link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin>
+  <link rel="dns-prefetch" href="https://docs.google.com">
 
-  <!-- Global Styles (Dark Nebula Pro Max) -->
+  <!-- Global Styles -->
   <link rel="stylesheet" href="style.css" />
 
-  <!-- PapaParse (CSV Parser) - Required by app.js -->
+  <!-- PapaParse (CSV Parser) -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
 
-  <!-- App Script (Loaded at the end, after DOM is ready) -->
+  <!-- App Script -->
   <script defer src="app.js"></script>
 </head>
 <body>
   <!-- Skip link for accessibility -->
   <a class="skip-link" href="#main">İçeriğe atla</a>
 
-  <!-- Fullscreen Loader / Splash -->
+  <!-- Fullscreen Loader -->
   <div id="loader" class="loader" role="status" aria-live="polite" aria-busy="true">
     <div class="loader-core">
       <div class="loader-ring"></div>
       <div class="loader-text">Veriler Analiz Ediliyor...</div>
+      <div class="loader-progress" id="loader-progress">0%</div>
     </div>
   </div>
 
@@ -38,7 +41,7 @@
 
   <!-- App Root -->
   <div id="app" class="app">
-    <!-- Header Section (sticky) -->
+    <!-- Header Section -->
     <section class="header-section" role="region" aria-label="Özet ve varlık grupları">
       <div class="grid-summary" id="summary" role="region" aria-label="Portföy özeti"></div>
 
@@ -56,25 +59,37 @@
       <div class="search-row">
         <label for="search" class="sr-only">Ürün ara</label>
         <input type="search" id="search" class="search" placeholder="Ürün ara..." aria-label="Ürün arama" autocomplete="off" inputmode="search" />
+        <button id="clear-search" class="clear-search" aria-label="Aramayı temizle" hidden>×</button>
       </div>
 
       <div id="detail-list" class="detail-list" role="list"></div>
+      
+      <!-- Pagination -->
+      <div class="pagination" id="pagination" hidden>
+        <button id="load-more" class="btn">Daha Fazla Göster</button>
+      </div>
     </section>
   </div>
 
-  <!-- Toast / Inline Notifications (JS controls visibility) -->
+  <!-- Toast Notifications -->
   <div id="toast" class="toast" role="status" aria-live="polite" aria-atomic="true" hidden></div>
 
   <!-- NoScript Fallback -->
   <noscript>
     <div class="noscript">
-      Bu uygulamayı kullanmak için JavaScript etkin olmalıdır.
+      <h2>JavaScript Gerekli</h2>
+      <p>Bu uygulamayı kullanmak için JavaScript etkin olmalıdır.</p>
     </div>
   </noscript>
 
-  <!-- Optional Footer -->
+  <!-- Footer -->
   <footer class="app-footer" aria-label="Uygulama alt bilgisi">
     <small>Portföy Terminali Pro Max · Dark Nebula teması</small>
+    <div class="footer-links">
+      <button id="export-csv" class="btn-link">CSV İndir</button>
+      <span>·</span>
+      <button id="refresh-data" class="btn-link">Yenile</button>
+    </div>
   </footer>
 </body>
 </html>
