@@ -5,106 +5,54 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
   <meta name="color-scheme" content="dark" />
   <meta name="theme-color" content="#0b1220" />
-  <meta name="description" content="Portföy Terminali Pro Max - Profesyonel yatırım takip uygulaması" />
   <title>Portföy Terminali Pro Max</title>
 
   <link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin>
-  <link rel="dns-prefetch" href="https://docs.google.com">
-
   <link rel="stylesheet" href="style.css" />
-
-  <!-- PapaParse -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
-  
-  <!-- App Script - DEFER KALDIRILDI -->
-  <script src="app.js"></script>
+  <script defer src="app.js"></script>
 </head>
 <body>
-  <!-- Skip link -->
   <a class="skip-link" href="#main">İçeriğe atla</a>
 
-  <!-- Loader - BAŞLANGIÇTA GÖRÜNÜR -->
   <div id="loader" class="loader" role="status" aria-live="polite" aria-busy="true">
     <div class="loader-core">
       <div class="loader-ring"></div>
-      <div class="loader-text" id="loader-text">Sistem Başlatılıyor...</div>
-      <div class="loader-progress" id="loader-progress">0%</div>
+      <div class="loader-text">Veriler Analiz Ediliyor...</div>
     </div>
   </div>
 
-  <!-- Ticker -->
   <header class="ticker-wrap" role="region" aria-label="Piyasa akışı">
-    <div class="ticker" id="ticker-content">
-      <div class="ticker-item">Yükleniyor...</div>
-    </div>
+    <div class="ticker" id="ticker-content"></div>
   </header>
 
-  <!-- App Root -->
-  <div id="app" class="app" style="display:none;">
-    <!-- Header Section -->
+  <div id="app" class="app">
     <section class="header-section" role="region" aria-label="Özet ve varlık grupları">
-      <div class="grid-summary" id="summary" role="region" aria-label="Portföy özeti">
-        <!-- Yükleniyor placeholder -->
-        <div class="card shimmer"><div class="small">Yükleniyor</div><div class="big">---</div></div>
-        <div class="card shimmer"><div class="small">Yükleniyor</div><div class="big">---</div></div>
-        <div class="card shimmer"><div class="small">Yükleniyor</div><div class="big">---</div></div>
-      </div>
-
+      <div class="grid-summary" id="summary" role="region" aria-label="Portföy özeti"></div>
       <h2 class="section-title">💼 Varlık Grupları</h2>
-      <div class="grid-types" id="types" role="list">
-        <div class="card shimmer" style="height:80px"></div>
-        <div class="card shimmer" style="height:80px"></div>
-        <div class="card shimmer" style="height:80px"></div>
-      </div>
+      <div class="grid-types" id="types" role="list"></div>
     </section>
 
-    <!-- Content Section -->
     <section id="main" class="content-section" role="region" aria-label="Detaylar ve performans" tabindex="-1">
       <h2 class="section-title">📈 Dönemsel Performans</h2>
-      <div id="periods" class="grid-periods" role="region" aria-label="Dönemsel performans kartları">
-        <div class="card shimmer" style="height:60px"></div>
-        <div class="card shimmer" style="height:60px"></div>
-      </div>
-
+      <div id="periods" class="grid-periods" role="region" aria-label="Dönemsel performans kartları"></div>
       <h2 id="detail-title" class="section-title">📦 Ürün Detayları</h2>
-
       <div class="search-row">
         <label for="search" class="sr-only">Ürün ara</label>
-        <input type="search" id="search" class="search" placeholder="Ürün ara..." aria-label="Ürün arama" autocomplete="off" inputmode="search" disabled />
-        <button id="clear-search" class="clear-search" aria-label="Aramayı temizle" hidden>×</button>
+        <input type="search" id="search" class="search" placeholder="Ürün ara..." aria-label="Ürün arama" autocomplete="off" inputmode="search" />
       </div>
-
-      <div id="detail-list" class="detail-list" role="list">
-        <div class="detail-item shimmer" style="height:60px"></div>
-        <div class="detail-item shimmer" style="height:60px"></div>
-        <div class="detail-item shimmer" style="height:60px"></div>
-      </div>
-      
-      <div class="pagination" id="pagination" hidden>
-        <button id="load-more" class="btn">Daha Fazla Göster</button>
-      </div>
+      <div id="detail-list" class="detail-list" role="list"></div>
     </section>
   </div>
 
-  <!-- Toast -->
   <div id="toast" class="toast" role="status" aria-live="polite" aria-atomic="true" hidden></div>
 
-  <!-- NoScript -->
   <noscript>
-    <div class="noscript">
-      <h2>JavaScript Gerekli</h2>
-      <p>Bu uygulamayı kullanmak için JavaScript etkin olmalıdır.</p>
-    </div>
+    <div class="noscript">Bu uygulamayı kullanmak için JavaScript etkin olmalıdır.</div>
   </noscript>
 
-  <!-- Footer -->
   <footer class="app-footer" aria-label="Uygulama alt bilgisi">
     <small>Portföy Terminali Pro Max · Dark Nebula teması</small>
-    <div class="footer-links">
-      <button id="export-csv" class="btn-link" disabled>CSV İndir</button>
-      <span>·</span>
-      <button id="refresh-data" class="btn-link" disabled>Yenile</button>
-    </div>
   </footer>
 </body>
 </html>
