@@ -154,22 +154,20 @@ async function init(){
     const resp = await fetch(`${CSV_URL}&cache=${Date.now()}`);
     const text = await resp.text();
     const parsed = Papa.parse(text.trim(), { header:true, skipEmptyLines:true });
-    // Orijinal kod (DEĞİŞMEDİ)
-DATA = parsed.data.map(row => {
-  const o = {}; 
-  for (let k in row){ 
-    o[k] = (k==="urun"||k==="tur") ? cleanStr(row[k]) : toNumber(row[k]); 
-  }
-  // Tarih için ek kontrol (YENİ)
-  if (row["tarih"]) {
-    o.tarih = row["tarih"].toString().trim();
-  }
-  return o;
-}).filter(x => x.urun && x.toplamYatirim > 0);
-
-}).filter(x => x.urun && x.toplamYatirim > 0);
-;
+    
+    // Orijinal kod + tarih için ek kontrol
+    DATA = parsed.data.map(row => {
+      const o = {}; 
+      for (let k in row){ 
+        o[k] = (k==="urun"||k==="tur") ? cleanStr(row[k]) : toNumber(row[k]); 
+      }
+      // Tarih için ek kontrol (YENİ)
+      if (row["tarih"]) {
+        o.tarih = row["tarih"].toString().trim();
+      }
+      return o;
     }).filter(x => x.urun && x.toplamYatirim > 0);
+    
     if (!DATA.length) throw new Error("CSV boş geldi");
 
     ALERTS = lsGet('alerts', {});
