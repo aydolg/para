@@ -154,20 +154,19 @@ async function init(){
     const resp = await fetch(`${CSV_URL}&cache=${Date.now()}`);
     const text = await resp.text();
     const parsed = Papa.parse(text.trim(), { header:true, skipEmptyLines:true });
-    DATA = parsed.data.map(row => {
+    // Orijinal kod (DEĞİŞMEDİ)
+DATA = parsed.data.map(row => {
   const o = {}; 
   for (let k in row){ 
-    const keyLower = k.toString().trim().toLowerCase();
-    
-    if (keyLower === "urun" || keyLower === "tur") {
-      o[keyLower] = cleanStr(row[k]);
-    } else if (keyLower === "tarih") {
-      o.tarih = row[k] ? row[k].toString().trim() : "";
-    } else {
-      o[keyLower] = toNumber(row[k]);
-    }
+    o[k] = (k==="urun"||k==="tur") ? cleanStr(row[k]) : toNumber(row[k]); 
+  }
+  // Tarih için ek kontrol (YENİ)
+  if (row["tarih"]) {
+    o.tarih = row["tarih"].toString().trim();
   }
   return o;
+}).filter(x => x.urun && x.toplamYatirim > 0);
+
 }).filter(x => x.urun && x.toplamYatirim > 0);
 ;
     }).filter(x => x.urun && x.toplamYatirim > 0);
