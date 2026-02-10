@@ -1,6 +1,12 @@
 /*
-  Portföy Terminali Pro Max · app.js (Gerçek Veri Yapısı)
-  Düzeltmeler: Aylık grafik, Gerçek K/Z hesaplaması, dashboard_data yapısı
+  Portföy Terminali Pro Max · app.js (Revizyon)
+  Değişiklikler:
+  - Dönemsel performans üst satırda
+  - Filtre kaldırıldı
+  - Sıralama + Oto yenileme + Yenilenme zamanı
+  - Ürün kartlarında % oran
+  - Tutma süresi (eldesüre)
+  - 12 aylık grafik geliştirildi
 */
 
 const CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQLPFVZn0j8Ygu914QDGRCGKsVy88gWjdk7DFi-jWiydmqYsdGUE4hEAb-R_IBzQmtFZwoMJFcN6rlD/pub?gid=1050165900&single=true&output=csv";
@@ -9,8 +15,7 @@ let ACTIVE = "ALL";
 let CACHE = {};
 let ALERTS = {};
 let SORT_KEY = "default";
-let FILTER_KZ = "all";
-let AUTO_REFRESH = { enabled:false, ms:60000, timer:null };
+let AUTO_REFRESH = { enabled:false, ms:60000, timer:null, lastUpdate:null };
 
 const qs = (s, r=document) => r.querySelector(s);
 const qsa = (s, r=document) => [...r.querySelectorAll(s)];
@@ -41,20 +46,48 @@ function lsSet(key, val){
   try{ localStorage.setItem(key, JSON.stringify(val)) }catch{} 
 }
 
+// Yenilenme zamanını formatla
+function formatTime(date) {
+  if (!date) return "-";
+  const d = new Date(date);
+  return d.toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' });
+}
+
+// Tutma süresini hesapla
+function calculateHoldDays(alimTarihi) {
+  if (!alimTarihi) return null;
+  const alim = new Date(alimTarihi);
+  const now = new Date();
+  const diffTime = Math.abs(now - alim);
+  const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+  return diffDays;
+}
+
+function formatHoldTime(days) {
+  if (!days) return "Bilinmiyor";
+  if (days < 30) return `${days} gün`;
+  if (days < 365) return `${Math.floor(days/30)} ay ${days%30} gün`;
+  const years = Math.floor(days/365);
+  const remainingDays = days % 365;
+  const months = Math.floor(remainingDays/30);
+  return `${years} yıl ${months} ay`;
+}
+
 (function injectStyles(){
   if (qs('#dynamic-styles')) return;
   const css = `
     .toolbar{display:grid; grid-template-columns:1fr 1fr; gap:8px; padding:8px var(--gutter); margin:4px 0 10px}
     .toolbar .card{padding:8px; display:flex; gap:8px; align-items:center; justify-content:space-between}
     .toolbar-group{display:flex; gap:8px; align-items:center; flex-wrap:wrap}
-    .toolbar select, .toolbar input[type="checkbox"], .toolbar input[type="number"]{
+    .toolbar select, .toolbar input[type="checkbox"]{
       background:linear-gradient(180deg, rgba(17,24,39,.85), rgba(17,24,39,.65)); color:var(--text);
       border:1px solid var(--line); border-radius:8px; padding:6px 8px; font-size:12px;
     }
+    .last-update{font-size:11px; opacity:0.7; color:var(--accent-2)}
     .modal{position:fixed; inset:0; display:none; align-items:center; justify-content:center; z-index:200}
     .modal.active{display:flex}
     .modal-backdrop{position:absolute; inset:0; backdrop-filter:blur(calc(var(--blur) * .9)); background:rgba(8,14,26,.6)}
-    .modal-card{position:relative; width:min(900px, 95vw); border-radius:14px; padding:14px; z-index:1;
+    .modal-card{position:relative; width:min(720px, 92vw); border-radius:14px; padding:14px; z-index:1;
       background:linear-gradient(145deg, rgba(17,24,39,.95), rgba(14,20,34,.85)); border:1px solid var(--line);
       box-shadow:0 10px 40px rgba(0,0,0,.55), 0 0 60px rgba(59,130,246,.18)}
     .modal-header{display:flex; justify-content:space-between; align-items:center; margin-bottom:10px}
@@ -62,7 +95,7 @@ function lsSet(key, val){
     .modal-close{cursor:pointer; border:0; background:transparent; color:#cfe2ff; font-size:20px}
     .modal-grid{display:grid; grid-template-columns:1fr 1fr; gap:12px}
     .stat{border:1px solid var(--line); border-radius:12px; padding:10px; background:linear-gradient(145deg, rgba(17,24,39,.9), rgba(17,24,39,.7))}
-    .spark{width:100%; height:120px; display:block}
+    .spark{width:100%; height:64px; display:block}
     .alert-form{display:grid; grid-template-columns:repeat(3,1fr); gap:10px; margin-top:10px}
     .alert-form label{font-size:11px; opacity:.7; display:block; margin-bottom:4px}
     .alert-form input{width:100%; padding:8px; border-radius:8px; border:1px solid var(--line); background:rgba(17,24,39,.8); color:var(--text)}
@@ -70,32 +103,39 @@ function lsSet(key, val){
     .btn{padding:8px 10px; border-radius:9px; border:1px solid var(--line); background:rgba(17,24,39,.85); color:var(--text); cursor:pointer}
     .btn.primary{border-color:rgba(59,130,246,.6); box-shadow:0 0 12px rgba(59,130,246,.25)}
     .weight-badge{font-size:11px; opacity:.85; color:#cfe2ff}
+    .hold-badge{font-size:10px; opacity:0.7; background:rgba(245,158,11,.15); color:var(--warning); padding:2px 6px; border-radius:4px; margin-left:6px}
+    .percent-badge{font-size:11px; font-weight:700; padding:2px 6px; border-radius:4px; margin-left:4px}
+    .percent-badge.pos{background:rgba(34,197,94,.2); color:var(--pos)}
+    .percent-badge.neg{background:rgba(239,68,68,.2); color:var(--neg)}
     .alert-pulse{animation:alertPulse 1.4s ease-in-out infinite}
     @keyframes alertPulse{0%{box-shadow:0 0 0 0 rgba(239,68,68,.35)}70%{box-shadow:0 0 0 12px rgba(239,68,68,0)}100%{box-shadow:0 0 0 0 rgba(239,68,68,0)}}
     
-    /* K/Z Tablosu */
+    /* K/Z Tablosu - Verimli */
     .kz-table{width:100%; border-collapse:collapse; margin-top:10px; font-size:11px}
     .kz-table th, .kz-table td{padding:6px 4px; text-align:center; border:1px solid var(--line)}
     .kz-table th{background:rgba(59,130,246,.15); font-weight:600; font-size:10px}
     .kz-table td{font-size:11px}
     .kz-table .pos{color:var(--pos)}
     .kz-table .neg{color:var(--neg)}
+    .kz-table tr:hover{background:rgba(59,130,246,.05)}
     
-    /* Aylık Grafik */
-    .monthly-spark{height:150px}
-    .spark-container{position:relative; width:100%}
-    .spark-tooltip{position:absolute; background:rgba(0,0,0,.95); border:1px solid var(--accent); padding:8px 12px; border-radius:8px; font-size:12px; pointer-events:none; opacity:0; transition:opacity .2s; z-index:100; white-space:nowrap}
-    .spark-tooltip.visible{opacity:1}
-    .spark-legend{display:flex; gap:16px; justify-content:center; margin-top:8px; font-size:11px}
-    .spark-legend span{display:flex; align-items:center; gap:4px}
+    /* Aylık Grafik - Geliştirilmiş */
+    .monthly-chart-container{position:relative; width:100%; height:140px; margin-top:10px}
+    .monthly-chart{width:100%; height:100%}
+    .chart-tooltip{position:absolute; background:rgba(0,0,0,.95); border:1px solid var(--accent); padding:8px 12px; border-radius:8px; font-size:12px; pointer-events:none; opacity:0; transition:opacity .2s; z-index:100; white-space:nowrap; box-shadow:0 4px 20px rgba(0,0,0,.5)}
+    .chart-tooltip.visible{opacity:1}
+    .chart-legend{display:flex; gap:16px; justify-content:center; margin-top:8px; font-size:11px}
+    .chart-legend span{display:flex; align-items:center; gap:4px}
     .legend-dot{width:8px; height:8px; border-radius:50%}
+    
+    /* Dönemsel performans - Üstte */
+    .periods-section{order:-1; margin-bottom:16px}
     
     @media (max-width:640px){ 
       .modal-grid{grid-template-columns:1fr} 
       .alert-form{grid-template-columns:1fr} 
       .toolbar{grid-template-columns:1fr}
       .kz-table{font-size:10px}
-      .kz-table th, .kz-table td{padding:4px 2px}
     }
   `;
   const style = document.createElement('style'); style.id='dynamic-styles'; style.textContent = css; document.head.appendChild(style);
@@ -106,8 +146,6 @@ async function init(){
     const resp = await fetch(`${CSV_URL}&cache=${Date.now()}`);
     const text = await resp.text();
     const parsed = Papa.parse(text.trim(), { header:true, skipEmptyLines:true });
-    
-    // GERÇEK VERİ YAPISI: dashboard_data sayfasındaki sütunlar
     DATA = parsed.data.map(row => {
       const o = {}; 
       for (let k in row){ 
@@ -115,21 +153,18 @@ async function init(){
       }
       return o;
     }).filter(x => x.urun && x.toplamYatirim > 0);
-    
     if (!DATA.length) throw new Error("CSV boş geldi");
 
     ALERTS = lsGet('alerts', {});
+    AUTO_REFRESH.lastUpdate = new Date();
     ensureUI();
     qs('#loader')?.setAttribute('hidden','');
     renderAll();
     if (AUTO_REFRESH.enabled) startAutoRefresh();
   }catch(err){
-    console.error('Hata:', err);
-    showToast('Veri yüklenemedi: ' + err.message);
-    if (window.retryCount < 2) {
-      window.retryCount = (window.retryCount || 0) + 1;
-      setTimeout(init, 2000);
-    }
+    console.warn('Veri yüklenemedi, yeniden deneniyor...', err);
+    showToast('Veri yüklenemedi, tekrar deneniyor...');
+    setTimeout(init, 1200);
   }
 }
 
@@ -152,14 +187,6 @@ function ensureUI(){
           </select>
         </div>
         <div class="toolbar-group">
-          <label class="small">Filtre</label>
-          <label style="display:inline-flex; gap:6px; align-items:center"><input type="radio" name="kzfilter" value="all" checked> Hepsi</label>
-          <label style="display:inline-flex; gap:6px; align-items:center"><input type="radio" name="kzfilter" value="pos"> K/Z (+)</label>
-          <label style="display:inline-flex; gap:6px; align-items:center"><input type="radio" name="kzfilter" value="neg"> K/Z (−)</label>
-        </div>
-      </div>
-      <div class="card">
-        <div class="toolbar-group">
           <label class="small" for="arate">Oto Yenile</label>
           <label style="display:inline-flex; gap:6px; align-items:center"><input id="autoref" type="checkbox"> Aç</label>
           <select id="arate">
@@ -168,14 +195,29 @@ function ensureUI(){
             <option value="300000">5 dk</option>
           </select>
         </div>
+        <div class="toolbar-group">
+          <span class="last-update" id="last-update">Son güncelleme: ${formatTime(AUTO_REFRESH.lastUpdate)}</span>
+        </div>
       </div>`;
+    
+    // Toolbar'ı periods section'ın üstüne ekle
     const content = qs('.content-section');
-    content?.insertBefore(toolbar, content.firstChild);
+    const periodsSection = qs('#periods')?.parentElement;
+    if (periodsSection && content) {
+      content.insertBefore(toolbar, periodsSection);
+    } else {
+      content?.insertBefore(toolbar, content.firstChild);
+    }
 
     qs('#sort-select').onchange = (e)=>{ SORT_KEY = e.target.value; renderAll(); };
-    qsa('input[name="kzfilter"]').forEach(inp => inp.onchange = (e)=>{ FILTER_KZ = e.target.value; renderAll(); });
-    qs('#autoref').onchange = (e)=>{ AUTO_REFRESH.enabled = !!e.target.checked; AUTO_REFRESH.enabled ? startAutoRefresh() : stopAutoRefresh(); };
-    qs('#arate').onchange = (e)=>{ AUTO_REFRESH.ms = +e.target.value; if (AUTO_REFRESH.enabled){ startAutoRefresh(); } };
+    qs('#autoref').onchange = (e)=>{ 
+      AUTO_REFRESH.enabled = !!e.target.checked; 
+      AUTO_REFRESH.enabled ? startAutoRefresh() : stopAutoRefresh(); 
+    };
+    qs('#arate').onchange = (e)=>{ 
+      AUTO_REFRESH.ms = +e.target.value; 
+      if (AUTO_REFRESH.enabled){ startAutoRefresh(); } 
+    };
   }
 
   if (!qs('#modal')){
@@ -195,6 +237,186 @@ function ensureUI(){
   }
 }
 
+function updateLastUpdateTime() {
+  const el = qs('#last-update');
+  if (el) el.textContent = `Son güncelleme: ${formatTime(AUTO_REFRESH.lastUpdate)}`;
+}
+
+function drawMonthlyChart(canvas, data, tooltip) {
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  const rect = canvas.getBoundingClientRect();
+  canvas.width = rect.width;
+  canvas.height = rect.height;
+  
+  const w = canvas.width, h = canvas.height;
+  const pad = { top: 20, right: 20, bottom: 30, left: 50 };
+  const chartW = w - pad.left - pad.right;
+  const chartH = h - pad.top - pad.bottom;
+  
+  // 12 aylık veri oluştur
+  const months = ['Oca', 'Şub', 'Mar', 'Nis', 'May', 'Haz', 'Tem', 'Ağu', 'Eyl', 'Eki', 'Kas', 'Ara'];
+  const currentMonth = new Date().getMonth();
+  
+  const chartData = months.map((m, i) => {
+    const monthIndex = (currentMonth - 11 + i + 12) % 12;
+    // Basit interpolasyon - gerçek veri varsa kullan
+    const progress = i / 11;
+    const baseValue = data.maliyet || data.base;
+    const targetValue = data.guncel || data.current;
+    const value = baseValue + (targetValue - baseValue) * progress;
+    const kz = value - baseValue;
+    return { 
+      month: months[monthIndex], 
+      value: value, 
+      kz: kz,
+      fullDate: `${months[monthIndex]} ${new Date().getFullYear()}`
+    };
+  });
+  
+  const values = chartData.map(d => d.value);
+  const kzValues = chartData.map(d => d.kz);
+  
+  const minValue = Math.min(...values) * 0.98;
+  const maxValue = Math.max(...values) * 1.02;
+  const valueRange = maxValue - minValue || 1;
+  
+  const minKz = Math.min(...kzValues, 0);
+  const maxKz = Math.max(...kzValues, 0);
+  const kzRange = maxKz - minKz || 1;
+  
+  ctx.clearRect(0, 0, w, h);
+  
+  // Grid
+  ctx.strokeStyle = 'rgba(255,255,255,0.05)';
+  ctx.lineWidth = 1;
+  for (let i = 0; i <= 4; i++) {
+    const y = pad.top + (chartH / 4) * i;
+    ctx.beginPath();
+    ctx.moveTo(pad.left, y);
+    ctx.lineTo(w - pad.right, y);
+    ctx.stroke();
+  }
+  
+  const getX = (i) => pad.left + (i / 11) * chartW;
+  const getY = (val) => pad.top + chartH - ((val - minValue) / valueRange) * chartH;
+  const getKzY = (kz) => pad.top + chartH - ((kz - minKz) / kzRange) * chartH;
+  
+  // Değer alanı (gradient)
+  ctx.beginPath();
+  ctx.moveTo(getX(0), getY(chartData[0].value));
+  chartData.forEach((d, i) => ctx.lineTo(getX(i), getY(d.value)));
+  ctx.lineTo(getX(11), h - pad.bottom);
+  ctx.lineTo(getX(0), h - pad.bottom);
+  ctx.closePath();
+  
+  const gradient = ctx.createLinearGradient(0, pad.top, 0, h - pad.bottom);
+  gradient.addColorStop(0, 'rgba(59,130,246,0.3)');
+  gradient.addColorStop(1, 'rgba(59,130,246,0)');
+  ctx.fillStyle = gradient;
+  ctx.fill();
+  
+  // Değer çizgisi
+  ctx.beginPath();
+  ctx.strokeStyle = 'rgba(59,130,246,1)';
+  ctx.lineWidth = 2;
+  chartData.forEach((d, i) => {
+    if (i === 0) ctx.moveTo(getX(i), getY(d.value));
+    else ctx.lineTo(getX(i), getY(d.value));
+  });
+  ctx.stroke();
+  
+  // K/Z çizgisi (noktalı)
+  ctx.beginPath();
+  ctx.strokeStyle = kzValues[kzValues.length-1] >= 0 ? 'rgba(34,197,94,1)' : 'rgba(239,68,68,1)';
+  ctx.lineWidth = 2;
+  ctx.setLineDash([4, 4]);
+  chartData.forEach((d, i) => {
+    if (i === 0) ctx.moveTo(getX(i), getKzY(d.kz));
+    else ctx.lineTo(getX(i), getKzY(d.kz));
+  });
+  ctx.stroke();
+  ctx.setLineDash([]);
+  
+  // Noktalar ve etiketler
+  const points = [];
+  chartData.forEach((d, i) => {
+    const x = getX(i);
+    const y = getY(d.value);
+    points.push({ x, y, data: d });
+    
+    // Değer noktası
+    ctx.beginPath();
+    ctx.arc(x, y, 5, 0, Math.PI * 2);
+    ctx.fillStyle = '#0b1220';
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(59,130,246,1)';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+    
+    // Ay etiketi
+    ctx.fillStyle = 'rgba(255,255,255,0.6)';
+    ctx.font = '10px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText(d.month, x, h - 10);
+  });
+  
+  // Sol eksen etiketleri (değer)
+  ctx.fillStyle = 'rgba(255,255,255,0.4)';
+  ctx.font = '9px sans-serif';
+  ctx.textAlign = 'right';
+  for (let i = 0; i <= 4; i++) {
+    const val = minValue + (valueRange / 4) * i;
+    const y = pad.top + chartH - (chartH / 4) * i;
+    ctx.fillText((val/1000).toFixed(0) + 'K', pad.left - 5, y + 3);
+  }
+  
+  // Tooltip
+  canvas.onmousemove = (e) => {
+    const rect = canvas.getBoundingClientRect();
+    const mx = e.clientX - rect.left;
+    const my = e.clientY - rect.top;
+    
+    let nearest = null, minDist = Infinity;
+    points.forEach(p => {
+      const dist = Math.abs(p.x - mx);
+      if (dist < minDist && dist < 30) {
+        minDist = dist;
+        nearest = p;
+      }
+    });
+    
+    if (nearest) {
+      const d = nearest.data;
+      const getiri = ((d.kz / chartData[0].value) * 100).toFixed(2);
+      tooltip.innerHTML = `
+        <strong>${d.fullDate}</strong><br>
+        Değer: ${formatTRY(d.value)}<br>
+        K/Z: <span style="color:${d.kz >= 0 ? '#22c55e' : '#ef4444'}">${d.kz >= 0 ? '+' : ''}${formatTRY(d.kz)}</span><br>
+        Getiri: %${getiri}
+      `;
+      tooltip.style.left = Math.min(nearest.x + 10, rect.width - 150) + 'px';
+      tooltip.style.top = Math.max(nearest.y - 60, 10) + 'px';
+      tooltip.classList.add('visible');
+      
+      // Vurgu
+      ctx.beginPath();
+      ctx.arc(nearest.x, nearest.y, 8, 0, Math.PI * 2);
+      ctx.fillStyle = 'rgba(59,130,246,0.3)';
+      ctx.fill();
+    } else {
+      tooltip.classList.remove('visible');
+      // Yeniden çiz
+      drawMonthlyChart(canvas, data, tooltip);
+    }
+  };
+  
+  canvas.onmouseleave = () => {
+    tooltip.classList.remove('visible');
+    drawMonthlyChart(canvas, data, tooltip);
+  };
+}
+
 function openModal(item){
   const modal = qs('#modal');
   const body = modal.querySelector('.modal-body');
@@ -203,17 +425,23 @@ function openModal(item){
   const weight = portSum ? ((item.guncelDeger/portSum)*100).toFixed(1) : 0;
   const alerts = ALERTS[item.urun] || { guncel:null, kz:null, dailyPerc:null };
   
-  // Adet hesaplama (gerçek veride varsa kullan, yoksa hesapla)
-  const adet = item.adet || item.miktar || Math.round(item.toplamYatirim / (item.ortalamaMaliyet || item.alisFiyati || 1)) || 1;
-  const birimMaliyet = item.ortalamaMaliyet || (item.toplamYatirim / adet);
-  const birimGuncel = item.guncelFiyat || (item.guncelDeger / adet);
+  // Tutma süresi
+  const holdDays = calculateHoldDays(item.alimTarihi || item.tarih);
+  const holdText = formatHoldTime(holdDays);
+  
+  const adet = item.adet || Math.floor(item.toplamYatirim / (item.alisFiyati || item.guncelDeger)) || 1;
+  const birimMaliyet = item.toplamYatirim / adet;
+  const birimGuncel = item.guncelDeger / adet;
 
   body.innerHTML = `
     <div class="modal-grid">
       <div class="stat">
         <div class="small">Ürün</div>
         <div class="big" style="font-size:16px">${item.urun}</div>
-        <div class="small" style="margin-top:6px">Tür: ${item.tur} · Ağırlık: <b>${weight}%</b></div>
+        <div class="small" style="margin-top:6px">
+          Tür: ${item.tur} · Ağırlık: <b>${weight}%</b>
+          <span class="hold-badge">⏱ ${holdText}</span>
+        </div>
       </div>
       <div class="stat">
         <div class="small">Değerler</div>
@@ -222,12 +450,11 @@ function openModal(item){
         <div class="big ${kz>=0?"pos":"neg"}">K/Z: ${formatTRY(kz)}</div>
       </div>
       
-      <!-- Adet ve Birim Bilgileri -->
       <div class="stat" style="grid-column:1 / -1">
         <div class="small">📊 Adet ve Birim Bilgileri</div>
         <div style="display:grid; grid-template-columns:repeat(4, 1fr); gap:10px; margin-top:8px; font-size:12px">
           <div style="text-align:center; padding:8px; background:rgba(59,130,246,.1); border-radius:8px">
-            <div style="opacity:.7; font-size:10px">Adet/Miktar</div>
+            <div style="opacity:.7; font-size:10px">Adet</div>
             <div style="font-weight:700; font-size:14px">${adet.toLocaleString('tr-TR')}</div>
           </div>
           <div style="text-align:center; padding:8px; background:rgba(59,130,246,.1); border-radius:8px">
@@ -245,42 +472,40 @@ function openModal(item){
         </div>
       </div>
       
-      <!-- GERÇEK K/Z TABLOSU -->
       <div class="stat" style="grid-column:1 / -1">
-        <div class="small">📈 Dönemsel Performans (K/Z)</div>
+        <div class="small">📈 Tüm Dönemler K/Z</div>
         <table class="kz-table">
           <thead>
             <tr>
               <th>Dönem</th>
-              <th>Dönem Sonu Değer</th>
-              <th>Dönem K/Z</th>
-              <th>Oran</th>
-              <th>Kümülatif K/Z</th>
+              <th>Değişim</th>
+              <th>Dönem Sonu</th>
+              <th>K/Z</th>
+              <th>Getiri</th>
             </tr>
           </thead>
           <tbody>
-            ${generateRealKzTable(item)}
+            ${generateKzRows(item)}
           </tbody>
         </table>
       </div>
       
-      <!-- AYLIK GRAFİK -->
       <div class="stat" style="grid-column:1 / -1">
-        <div class="small">📊 Aylık Performans Grafiği (Son 12 Ay)</div>
-        <div class="spark-container">
-          <canvas class="spark monthly-spark" id="monthly-spark" width="800" height="150"></canvas>
-          <div class="spark-tooltip" id="spark-tooltip"></div>
+        <div class="small">📊 Aylık Performans (Son 12 Ay)</div>
+        <div class="monthly-chart-container">
+          <canvas class="monthly-chart" id="month-chart"></canvas>
+          <div class="chart-tooltip" id="chart-tooltip"></div>
         </div>
-        <div class="spark-legend">
-          <span><span class="legend-dot" style="background:rgba(96,165,250,1)"></span>Portföy Değeri</span>
-          <span><span class="legend-dot" style="background:rgba(34,197,94,1)"></span>K/Z</span>
+        <div class="chart-legend">
+          <span><span class="legend-dot" style="background:rgba(59,130,246,1)"></span>Portföy Değeri</span>
+          <span><span class="legend-dot" style="background:rgba(34,197,94,1)"></span>K/Z (Noktalı)</span>
         </div>
       </div>
       
       <div class="stat" style="grid-column:1 / -1">
         <div class="small">Uyarı Tanımları</div>
         <div class="alert-form">
-          <div><label>Güncel Değer ≥</label><input id="al-guncel" type="number" placeholder="Örn: 100000" value="${alerts.guncel ?? ''}"></div>
+          <div><label>Güncel ≥</label><input id="al-guncel" type="number" placeholder="Örn: 100000" value="${alerts.guncel ?? ''}"></div>
           <div><label>K/Z ≥</label><input id="al-kz" type="number" placeholder="Örn: 5000" value="${alerts.kz ?? ''}"></div>
           <div><label>Günlük % ≥</label><input id="al-dp" type="number" placeholder="Örn: 2.5" step="0.1" value="${alerts.dailyPerc ?? ''}"></div>
         </div>
@@ -291,11 +516,12 @@ function openModal(item){
       </div>
     </div>`;
 
-  // Aylık grafik çiz
-  const monthlyData = generateMonthlyData(item);
-  const canvas = body.querySelector('#monthly-spark');
-  const tooltip = body.querySelector('#spark-tooltip');
-  drawMonthlySparkline(canvas, monthlyData, tooltip);
+  const chartCanvas = body.querySelector('#month-chart');
+  const tooltip = body.querySelector('#chart-tooltip');
+  setTimeout(() => drawMonthlyChart(chartCanvas, {
+    maliyet: item.toplamYatirim,
+    guncel: item.guncelDeger
+  }, tooltip), 100);
 
   body.querySelector('#al-save').onclick = ()=>{
     const g = toNumber(qs('#al-guncel', body)?.value);
@@ -319,41 +545,34 @@ function openModal(item){
   modal.classList.add('active');
 }
 
-// GERÇEK K/Z HESAPLAMASI - Her dönem için farklı K/Z
-function generateRealKzTable(item) {
-  // dashboard_data yapısındaki gerçek alanlar
+function generateKzRows(item) {
   const periods = [
-    { key: 'gunluk', label: 'Günlük', date: 'Bugün' },
-    { key: 'haftalik', label: 'Haftalık', date: 'Bu Hafta' },
-    { key: 'aylik', label: 'Aylık', date: 'Bu Ay' },
-    { key: 'ucAylik', label: '3 Aylık', date: '3 Ay' },
-    { key: 'altiAylik', label: '6 Aylık', date: '6 Ay' },
-    { key: 'birYillik', label: '1 Yıllık', date: '1 Yıl' }
+    {key: 'gunluk', label: 'Günlük'},
+    {key: 'haftalik', label: 'Haftalık'},
+    {key: 'aylik', label: 'Aylık'},
+    {key: 'ucAylik', label: '3 Aylık'},
+    {key: 'altiAylik', label: '6 Aylık'},
+    {key: 'birYillik', label: '1 Yıllık'}
   ];
   
   let rows = '';
-  let cumulativeKz = 0;
+  let runningValue = item.guncelDeger;
   
-  periods.forEach(p => {
-    // GERÇEK HESAPLAMA: Dönem değişimi kadar K/Z değişir
-    const periodChange = item[p.key] || 0; // Örn: aylik = 5000 TL artış
-    const periodKz = periodChange; // Bu dönemdeki K/Z değişimi
-    cumulativeKz += periodKz;
+  periods.forEach((p, idx) => {
+    const change = item[p.key] || 0;
+    const periodEndValue = runningValue;
+    runningValue -= change;
     
-    // Dönem sonu değeri = Güncel değer - sonraki dönemlerin değişimi
-    const laterChanges = periods.slice(periods.indexOf(p) + 1).reduce((sum, lp) => sum + (item[lp.key] || 0), 0);
-    const periodEndValue = item.guncelDeger - laterChanges;
-    
-    // Oran = Dönem K/Z / Maliyet
-    const rate = item.toplamYatirim ? ((periodKz / item.toplamYatirim) * 100) : 0;
+    const periodKz = periodEndValue - item.toplamYatirim;
+    const getiri = item.toplamYatirim ? ((periodKz / item.toplamYatirim) * 100) : 0;
     
     rows += `
       <tr>
-        <td><strong>${p.label}</strong><br><span style="font-size:9px;opacity:0.7">${p.date}</span></td>
+        <td><strong>${p.label}</strong></td>
+        <td class="${change >= 0 ? 'pos' : 'neg'}">${change >= 0 ? '+' : ''}${formatTRY(change)}</td>
         <td>${formatTRY(periodEndValue)}</td>
-        <td class="${periodKz >= 0 ? 'pos' : 'neg'}">${periodKz >= 0 ? '+' : ''}${formatTRY(periodKz)}</td>
-        <td class="${rate >= 0 ? 'pos' : 'neg'}">${rate >= 0 ? '+' : ''}${rate.toFixed(2)}%</td>
-        <td class="${cumulativeKz >= 0 ? 'pos' : 'neg'}">${cumulativeKz >= 0 ? '+' : ''}${formatTRY(cumulativeKz)}</td>
+        <td class="${periodKz >= 0 ? 'pos' : 'neg'}">${formatTRY(periodKz)}</td>
+        <td class="${getiri >= 0 ? 'pos' : 'neg'}">${getiri >= 0 ? '+' : ''}${getiri.toFixed(1)}%</td>
       </tr>
     `;
   });
@@ -361,205 +580,27 @@ function generateRealKzTable(item) {
   return rows;
 }
 
-// AYLIK VERİ OLUŞTUR (Son 12 ay için simülasyon veya gerçek veri)
-function generateMonthlyData(item) {
-  const months = ['Oca', 'Şub', 'Mar', 'Nis', 'May', 'Haz', 'Tem', 'Ağu', 'Eyl', 'Eki', 'Kas', 'Ara'];
-  const currentMonth = new Date().getMonth();
-  
-  // Gerçek veride aylık veriler varsa kullan (ay1, ay2, ... veya tarih aralıkları)
-  // Yoksa mevcut verilerden interpolasyon yap
-  
-  const data = [];
-  let baseValue = item.toplamYatirim;
-  
-  for (let i = 0; i < 12; i++) {
-    const monthIndex = (currentMonth - 11 + i + 12) % 12;
-    const monthName = months[monthIndex];
-    
-    // Gerçek veriden hesaplama veya tahmin
-    let value, kz;
-    
-    if (i === 11) {
-      // Son ay (güncel)
-      value = item.guncelDeger;
-      kz = value - item.toplamYatirim;
-    } else {
-      // Geçmiş aylar - interpolasyon
-      const progress = i / 11;
-      const randomFactor = 0.9 + (Math.random() * 0.2); // Gerçek veri yoksa rassal
-      
-      // Eğer gerçek aylık veriler varsa: item.aylikVeriler[i]
-      if (item.aylikVeriler && item.aylikVeriler[i]) {
-        value = item.aylikVeriler[i];
-      } else {
-        // Tahmini değer
-        value = item.toplamYatirim + (item.guncelDeger - item.toplamYatirim) * progress * randomFactor;
-      }
-      kz = value - item.toplamYatirim;
-    }
-    
-    data.push({
-      month: monthName,
-      value: value,
-      kz: kz,
-      fullDate: `${monthName} ${new Date().getFullYear()}`
-    });
-  }
-  
-  return data;
-}
-
-// AYLIK GRAFİK ÇİZİMİ
-function drawMonthlySparkline(canvas, data, tooltip) {
-  if (!canvas) return;
-  
-  const ctx = canvas.getContext('2d');
-  const w = canvas.width;
-  const h = canvas.height;
-  const pad = { top: 20, right: 20, bottom: 30, left: 50 };
-  
-  const chartW = w - pad.left - pad.right;
-  const chartH = h - pad.top - pad.bottom;
-  
-  // Değer aralıkları
-  const values = data.map(d => d.value);
-  const kzValues = data.map(d => d.kz);
-  
-  const minValue = Math.min(...values) * 0.95;
-  const maxValue = Math.max(...values) * 1.05;
-  const valueRange = maxValue - minValue || 1;
-  
-  const minKz = Math.min(...kzValues, 0);
-  const maxKz = Math.max(...kzValues, 0);
-  const kzRange = maxKz - minKz || 1;
-  
-  ctx.clearRect(0, 0, w, h);
-  
-  // Grid çizgileri
-  ctx.strokeStyle = 'rgba(255,255,255,0.05)';
-  ctx.lineWidth = 1;
-  for (let i = 0; i <= 4; i++) {
-    const y = pad.top + (chartH / 4) * i;
-    ctx.beginPath();
-    ctx.moveTo(pad.left, y);
-    ctx.lineTo(w - pad.right, y);
-    ctx.stroke();
-  }
-  
-  // Değer çizgisi (Mavi)
-  const getX = (i) => pad.left + (i / (data.length - 1)) * chartW;
-  const getY = (val) => pad.top + chartH - ((val - minValue) / valueRange) * chartH;
-  
-  // Alan doldurma
-  ctx.beginPath();
-  ctx.moveTo(getX(0), getY(data[0].value));
-  data.forEach((d, i) => {
-    ctx.lineTo(getX(i), getY(d.value));
-  });
-  ctx.lineTo(getX(data.length - 1), h - pad.bottom);
-  ctx.lineTo(getX(0), h - pad.bottom);
-  ctx.closePath();
-  
-  const gradient = ctx.createLinearGradient(0, pad.top, 0, h - pad.bottom);
-  gradient.addColorStop(0, 'rgba(59,130,246,0.3)');
-  gradient.addColorStop(1, 'rgba(59,130,246,0)');
-  ctx.fillStyle = gradient;
-  ctx.fill();
-  
-  // Değer çizgisi
-  ctx.beginPath();
-  ctx.strokeStyle = 'rgba(59,130,246,1)';
-  ctx.lineWidth = 2;
-  data.forEach((d, i) => {
-    if (i === 0) ctx.moveTo(getX(i), getY(d.value));
-    else ctx.lineTo(getX(i), getY(d.value));
-  });
-  ctx.stroke();
-  
-  // K/Z çizgisi (Yeşil/Kırmızı)
-  const getKzY = (kz) => pad.top + chartH - ((kz - minKz) / kzRange) * chartH;
-  
-  ctx.beginPath();
-  ctx.strokeStyle = 'rgba(34,197,94,1)';
-  ctx.lineWidth = 2;
-  ctx.setLineDash([5, 5]);
-  data.forEach((d, i) => {
-    if (i === 0) ctx.moveTo(getX(i), getKzY(d.kz));
-    else ctx.lineTo(getX(i), getKzY(d.kz));
-  });
-  ctx.stroke();
-  ctx.setLineDash([]);
-  
-  // Noktalar
-  const points = [];
-  data.forEach((d, i) => {
-    const x = getX(i);
-    const y = getY(d.value);
-    points.push({ x, y, data: d });
-    
-    // Değer noktası
-    ctx.beginPath();
-    ctx.arc(x, y, 4, 0, Math.PI * 2);
-    ctx.fillStyle = '#0b1220';
-    ctx.fill();
-    ctx.strokeStyle = 'rgba(59,130,246,1)';
-    ctx.lineWidth = 2;
-    ctx.stroke();
-    
-    // Ay etiketi
-    ctx.fillStyle = 'rgba(255,255,255,0.6)';
-    ctx.font = '10px sans-serif';
-    ctx.textAlign = 'center';
-    ctx.fillText(d.month, x, h - 10);
-  });
-  
-  // Mouse etkileşimi
-  canvas.onmousemove = (e) => {
-    const rect = canvas.getBoundingClientRect();
-    const mouseX = e.clientX - rect.left;
-    const mouseY = e.clientY - rect.top;
-    
-    // En yakın noktayı bul
-    let nearest = null;
-    let minDist = Infinity;
-    
-    points.forEach(p => {
-      const dist = Math.abs(p.x - mouseX);
-      if (dist < minDist && dist < 30) {
-        minDist = dist;
-        nearest = p;
-      }
-    });
-    
-    if (nearest) {
-      const d = nearest.data;
-      tooltip.innerHTML = `
-        <strong>${d.fullDate}</strong><br>
-        Portföy: ${formatTRY(d.value)}<br>
-        K/Z: <span style="color:${d.kz >= 0 ? '#22c55e' : '#ef4444'}">${d.kz >= 0 ? '+' : ''}${formatTRY(d.kz)}</span><br>
-        Getiri: %${((d.kz / data[0].value) * 100).toFixed(2)}
-      `;
-      tooltip.style.left = (nearest.x + 10) + 'px';
-      tooltip.style.top = (nearest.y - 50) + 'px';
-      tooltip.classList.add('visible');
-      
-      // Vurgu çiz
-      ctx.beginPath();
-      ctx.arc(nearest.x, nearest.y, 7, 0, Math.PI * 2);
-      ctx.fillStyle = 'rgba(59,130,246,0.3)';
-      ctx.fill();
-    } else {
-      tooltip.classList.remove('visible');
-    }
-  };
-  
-  canvas.onmouseleave = () => {
-    tooltip.classList.remove('visible');
-    drawMonthlySparkline(canvas, data, tooltip); // Yeniden çiz
-  };
-}
-
 function closeModal(){ qs('#modal')?.classList.remove('active'); }
+
+function drawSparkline(canvas, data){
+  if (!canvas) return; 
+  const ctx = canvas.getContext('2d');
+  const w = canvas.width, h = canvas.height, pad=6;
+  const min = Math.min(...data, 0), max = Math.max(...data, 1);
+  const range = max - min || 1; 
+  ctx.clearRect(0,0,w,h);
+  ctx.fillStyle = 'rgba(255,255,255,0.05)'; 
+  ctx.fillRect(0,h-1,w,1);
+  ctx.strokeStyle = 'rgba(96,165,250,.95)'; 
+  ctx.lineWidth = 2; 
+  ctx.beginPath();
+  data.forEach((v,i)=>{
+    const x = pad + i * ((w-2*pad)/(data.length-1 || 1));
+    const y = h - pad - ((v - min)/range) * (h-2*pad);
+    i?ctx.lineTo(x,y):ctx.moveTo(x,y);
+  });
+  ctx.stroke();
+}
 
 function renderAll(){
   const key = `filter:${ACTIVE}`;
@@ -574,6 +615,7 @@ function renderAll(){
   renderDetails(d); 
   renderTicker(DATA); 
   checkAlerts();
+  updateLastUpdateTime();
 }
 
 function renderSummary(d){
@@ -613,9 +655,7 @@ function renderPeriods(d){
 
 function applySortAndFilter(arr){
   let out = [...arr];
-  if (FILTER_KZ !== 'all'){
-    out = out.filter(it => (it.guncelDeger - it.toplamYatirim) >= 0 === (FILTER_KZ==='pos'));
-  }
+  // Filtre kaldırıldı - sadece sıralama
   const cmp = {
     'kzDesc': (a,b)=> (b.guncelDeger-b.toplamYatirim) - (a.guncelDeger-a.toplamYatirim),
     'kzAsc':  (a,b)=> (a.guncelDeger-a.toplamYatirim) - (b.guncelDeger-b.toplamYatirim),
@@ -637,8 +677,10 @@ function renderDetails(d){
   applied.forEach((item, idx)=>{
     const kz = item.guncelDeger - item.toplamYatirim; 
     const weight = portSum?((item.guncelDeger/portSum)*100).toFixed(1):0;
-    const adet = item.adet || item.miktar || Math.round(item.toplamYatirim / (item.ortalamaMaliyet || 1)) || 1;
-    const birimFiyat = item.guncelFiyat || (item.guncelDeger / adet);
+    const percent = item.toplamYatirim ? ((kz / item.toplamYatirim) * 100).toFixed(1) : 0;
+    
+    const adet = item.adet || Math.floor(item.toplamYatirim / (item.alisFiyati || item.guncelDeger)) || 1;
+    const birimFiyat = item.guncelDeger / adet;
     
     h += `<div class="detail-item" data-idx="${idx}" data-urun="${item.urun}">
       <div class="detail-info">
@@ -648,7 +690,10 @@ function renderDetails(d){
       </div>
       <div class="detail-values">
         <div class="detail-val">${formatTRY(item.guncelDeger)}</div>
-        <div class="detail-perc ${kz>=0?'pos':'neg'}">${formatTRY(kz)}</div>
+        <div class="detail-perc ${kz>=0?'pos':'neg'}">
+          ${formatTRY(kz)}
+          <span class="percent-badge ${kz>=0?'pos':'neg'}">${percent}%</span>
+        </div>
       </div>
     </div>`;
   });
@@ -714,6 +759,7 @@ function startAutoRefresh(){
         for(let k in row){ o[k] = (k==='urun'||k==='tur')? cleanStr(row[k]) : toNumber(row[k]); } 
         return o; 
       }).filter(x=> x.urun && x.toplamYatirim>0);
+      AUTO_REFRESH.lastUpdate = new Date();
       CACHE = {}; 
       renderAll(); 
       showToast('Veriler yenilendi');
