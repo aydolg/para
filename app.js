@@ -401,7 +401,7 @@ function openModal(item){
   const weight = portSum ? ((item.guncelDeger/portSum)*100).toFixed(1) : 0;
   const alerts = ALERTS[item.urun] || { guncel:null, kz:null, dailyPerc:null };
   
-  const holdDays = calculateHoldDays(item.alimTarihi || item.tarih);
+  const holdDays = calculateHoldDays(item.tarih);
   const holdText = formatHoldTime(holdDays);
   
   const adet = item.adet || Math.floor(item.toplamYatirim / (item.alisFiyati || item.guncelDeger)) || 1;
