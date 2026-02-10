@@ -1,12 +1,13 @@
 /*
-  Portföy Terminali Pro Max · app.js (Revizyon)
+  Portföy Terminali Pro Max · app.js (Final)
   Değişiklikler:
-  - Dönemsel performans üst satırda
+  - Dönemsel Performans üstte, Toolbar altta
   - Filtre kaldırıldı
-  - Sıralama + Oto yenileme + Yenilenme zamanı
+  - Sıralama + Oto Yenileme + Son Güncelleme Zamanı
   - Ürün kartlarında % oran
   - Tutma süresi (eldesüre)
-  - 12 aylık grafik geliştirildi
+  - Geliştirilmiş 12 aylık grafik
+  - Verimli K/Z tablosu
 */
 
 const CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQLPFVZn0j8Ygu914QDGRCGKsVy88gWjdk7DFi-jWiydmqYsdGUE4hEAb-R_IBzQmtFZwoMJFcN6rlD/pub?gid=1050165900&single=true&output=csv";
@@ -46,14 +47,12 @@ function lsSet(key, val){
   try{ localStorage.setItem(key, JSON.stringify(val)) }catch{} 
 }
 
-// Yenilenme zamanını formatla
 function formatTime(date) {
   if (!date) return "-";
   const d = new Date(date);
   return d.toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' });
 }
 
-// Tutma süresini hesapla
 function calculateHoldDays(alimTarihi) {
   if (!alimTarihi) return null;
   const alim = new Date(alimTarihi);
@@ -76,14 +75,14 @@ function formatHoldTime(days) {
 (function injectStyles(){
   if (qs('#dynamic-styles')) return;
   const css = `
-    .toolbar{display:grid; grid-template-columns:1fr 1fr; gap:8px; padding:8px var(--gutter); margin:4px 0 10px}
-    .toolbar .card{padding:8px; display:flex; gap:8px; align-items:center; justify-content:space-between}
-    .toolbar-group{display:flex; gap:8px; align-items:center; flex-wrap:wrap}
+    .toolbar{display:grid; grid-template-columns:1fr; gap:8px; padding:8px var(--gutter); margin:10px 0}
+    .toolbar .card{padding:12px; display:flex; gap:16px; align-items:center; justify-content:flex-start; flex-wrap:wrap}
+    .toolbar-group{display:flex; gap:8px; align-items:center}
     .toolbar select, .toolbar input[type="checkbox"]{
       background:linear-gradient(180deg, rgba(17,24,39,.85), rgba(17,24,39,.65)); color:var(--text);
-      border:1px solid var(--line); border-radius:8px; padding:6px 8px; font-size:12px;
+      border:1px solid var(--line); border-radius:8px; padding:6px 10px; font-size:12px;
     }
-    .last-update{font-size:11px; opacity:0.7; color:var(--accent-2)}
+    .last-update{font-size:11px; opacity:0.8; color:var(--accent-2); margin-left:auto; padding:4px 10px; background:rgba(59,130,246,.1); border-radius:6px}
     .modal{position:fixed; inset:0; display:none; align-items:center; justify-content:center; z-index:200}
     .modal.active{display:flex}
     .modal-backdrop{position:absolute; inset:0; backdrop-filter:blur(calc(var(--blur) * .9)); background:rgba(8,14,26,.6)}
@@ -103,14 +102,12 @@ function formatHoldTime(days) {
     .btn{padding:8px 10px; border-radius:9px; border:1px solid var(--line); background:rgba(17,24,39,.85); color:var(--text); cursor:pointer}
     .btn.primary{border-color:rgba(59,130,246,.6); box-shadow:0 0 12px rgba(59,130,246,.25)}
     .weight-badge{font-size:11px; opacity:.85; color:#cfe2ff}
-    .hold-badge{font-size:10px; opacity:0.7; background:rgba(245,158,11,.15); color:var(--warning); padding:2px 6px; border-radius:4px; margin-left:6px}
+    .hold-badge{font-size:10px; opacity:0.8; background:rgba(245,158,11,.15); color:#f59e0b; padding:2px 8px; border-radius:4px; margin-left:6px}
     .percent-badge{font-size:11px; font-weight:700; padding:2px 6px; border-radius:4px; margin-left:4px}
     .percent-badge.pos{background:rgba(34,197,94,.2); color:var(--pos)}
     .percent-badge.neg{background:rgba(239,68,68,.2); color:var(--neg)}
     .alert-pulse{animation:alertPulse 1.4s ease-in-out infinite}
     @keyframes alertPulse{0%{box-shadow:0 0 0 0 rgba(239,68,68,.35)}70%{box-shadow:0 0 0 12px rgba(239,68,68,0)}100%{box-shadow:0 0 0 0 rgba(239,68,68,0)}}
-    
-    /* K/Z Tablosu - Verimli */
     .kz-table{width:100%; border-collapse:collapse; margin-top:10px; font-size:11px}
     .kz-table th, .kz-table td{padding:6px 4px; text-align:center; border:1px solid var(--line)}
     .kz-table th{background:rgba(59,130,246,.15); font-weight:600; font-size:10px}
@@ -118,8 +115,6 @@ function formatHoldTime(days) {
     .kz-table .pos{color:var(--pos)}
     .kz-table .neg{color:var(--neg)}
     .kz-table tr:hover{background:rgba(59,130,246,.05)}
-    
-    /* Aylık Grafik - Geliştirilmiş */
     .monthly-chart-container{position:relative; width:100%; height:140px; margin-top:10px}
     .monthly-chart{width:100%; height:100%}
     .chart-tooltip{position:absolute; background:rgba(0,0,0,.95); border:1px solid var(--accent); padding:8px 12px; border-radius:8px; font-size:12px; pointer-events:none; opacity:0; transition:opacity .2s; z-index:100; white-space:nowrap; box-shadow:0 4px 20px rgba(0,0,0,.5)}
@@ -127,14 +122,11 @@ function formatHoldTime(days) {
     .chart-legend{display:flex; gap:16px; justify-content:center; margin-top:8px; font-size:11px}
     .chart-legend span{display:flex; align-items:center; gap:4px}
     .legend-dot{width:8px; height:8px; border-radius:50%}
-    
-    /* Dönemsel performans - Üstte */
-    .periods-section{order:-1; margin-bottom:16px}
-    
     @media (max-width:640px){ 
       .modal-grid{grid-template-columns:1fr} 
-      .alert-form{grid-template-columns:1fr} 
-      .toolbar{grid-template-columns:1fr}
+      .alert-form{grid-template-columns:1fr}
+      .toolbar .card{flex-direction:column; align-items:flex-start}
+      .last-update{margin-left:0; margin-top:8px}
       .kz-table{font-size:10px}
     }
   `;
@@ -201,14 +193,9 @@ function ensureUI(){
       </div>`;
     
     // TOOLBAR'I DÖNEMSEL PERFORMANS'IN ALTINA EKLE
-    const periodsSection = qs('#periods'); // Dönemsel performans kartları
-    const content = qs('.content-section');
-    
-    if (periodsSection && content) {
-      // periodsSection'dan sonraki kardeşin (Ürün Detayları başlığı) öncesine ekle
-      content.insertBefore(toolbar, periodsSection.nextElementSibling);
-    } else {
-      content?.insertBefore(toolbar, content.firstChild);
+    const periodsSection = qs('#periods');
+    if (periodsSection && periodsSection.parentNode) {
+      periodsSection.parentNode.insertBefore(toolbar, periodsSection.nextSibling);
     }
 
     qs('#sort-select').onchange = (e)=>{ SORT_KEY = e.target.value; renderAll(); };
@@ -221,7 +208,8 @@ function ensureUI(){
       if (AUTO_REFRESH.enabled){ startAutoRefresh(); } 
     };
   }
-   if (!qs('#modal')){
+
+  if (!qs('#modal')){
     const modal = document.createElement('div');
     modal.id = 'modal'; modal.className = 'modal';
     modal.innerHTML = `
@@ -255,13 +243,11 @@ function drawMonthlyChart(canvas, data, tooltip) {
   const chartW = w - pad.left - pad.right;
   const chartH = h - pad.top - pad.bottom;
   
-  // 12 aylık veri oluştur
   const months = ['Oca', 'Şub', 'Mar', 'Nis', 'May', 'Haz', 'Tem', 'Ağu', 'Eyl', 'Eki', 'Kas', 'Ara'];
   const currentMonth = new Date().getMonth();
   
   const chartData = months.map((m, i) => {
     const monthIndex = (currentMonth - 11 + i + 12) % 12;
-    // Basit interpolasyon - gerçek veri varsa kullan
     const progress = i / 11;
     const baseValue = data.maliyet || data.base;
     const targetValue = data.guncel || data.current;
@@ -288,7 +274,6 @@ function drawMonthlyChart(canvas, data, tooltip) {
   
   ctx.clearRect(0, 0, w, h);
   
-  // Grid
   ctx.strokeStyle = 'rgba(255,255,255,0.05)';
   ctx.lineWidth = 1;
   for (let i = 0; i <= 4; i++) {
@@ -303,7 +288,6 @@ function drawMonthlyChart(canvas, data, tooltip) {
   const getY = (val) => pad.top + chartH - ((val - minValue) / valueRange) * chartH;
   const getKzY = (kz) => pad.top + chartH - ((kz - minKz) / kzRange) * chartH;
   
-  // Değer alanı (gradient)
   ctx.beginPath();
   ctx.moveTo(getX(0), getY(chartData[0].value));
   chartData.forEach((d, i) => ctx.lineTo(getX(i), getY(d.value)));
@@ -317,7 +301,6 @@ function drawMonthlyChart(canvas, data, tooltip) {
   ctx.fillStyle = gradient;
   ctx.fill();
   
-  // Değer çizgisi
   ctx.beginPath();
   ctx.strokeStyle = 'rgba(59,130,246,1)';
   ctx.lineWidth = 2;
@@ -327,7 +310,6 @@ function drawMonthlyChart(canvas, data, tooltip) {
   });
   ctx.stroke();
   
-  // K/Z çizgisi (noktalı)
   ctx.beginPath();
   ctx.strokeStyle = kzValues[kzValues.length-1] >= 0 ? 'rgba(34,197,94,1)' : 'rgba(239,68,68,1)';
   ctx.lineWidth = 2;
@@ -339,14 +321,12 @@ function drawMonthlyChart(canvas, data, tooltip) {
   ctx.stroke();
   ctx.setLineDash([]);
   
-  // Noktalar ve etiketler
   const points = [];
   chartData.forEach((d, i) => {
     const x = getX(i);
     const y = getY(d.value);
     points.push({ x, y, data: d });
     
-    // Değer noktası
     ctx.beginPath();
     ctx.arc(x, y, 5, 0, Math.PI * 2);
     ctx.fillStyle = '#0b1220';
@@ -355,14 +335,12 @@ function drawMonthlyChart(canvas, data, tooltip) {
     ctx.lineWidth = 2;
     ctx.stroke();
     
-    // Ay etiketi
     ctx.fillStyle = 'rgba(255,255,255,0.6)';
     ctx.font = '10px sans-serif';
     ctx.textAlign = 'center';
     ctx.fillText(d.month, x, h - 10);
   });
   
-  // Sol eksen etiketleri (değer)
   ctx.fillStyle = 'rgba(255,255,255,0.4)';
   ctx.font = '9px sans-serif';
   ctx.textAlign = 'right';
@@ -372,7 +350,6 @@ function drawMonthlyChart(canvas, data, tooltip) {
     ctx.fillText((val/1000).toFixed(0) + 'K', pad.left - 5, y + 3);
   }
   
-  // Tooltip
   canvas.onmousemove = (e) => {
     const rect = canvas.getBoundingClientRect();
     const mx = e.clientX - rect.left;
@@ -400,14 +377,12 @@ function drawMonthlyChart(canvas, data, tooltip) {
       tooltip.style.top = Math.max(nearest.y - 60, 10) + 'px';
       tooltip.classList.add('visible');
       
-      // Vurgu
       ctx.beginPath();
       ctx.arc(nearest.x, nearest.y, 8, 0, Math.PI * 2);
       ctx.fillStyle = 'rgba(59,130,246,0.3)';
       ctx.fill();
     } else {
       tooltip.classList.remove('visible');
-      // Yeniden çiz
       drawMonthlyChart(canvas, data, tooltip);
     }
   };
@@ -426,7 +401,6 @@ function openModal(item){
   const weight = portSum ? ((item.guncelDeger/portSum)*100).toFixed(1) : 0;
   const alerts = ALERTS[item.urun] || { guncel:null, kz:null, dailyPerc:null };
   
-  // Tutma süresi
   const holdDays = calculateHoldDays(item.alimTarihi || item.tarih);
   const holdText = formatHoldTime(holdDays);
   
@@ -559,7 +533,7 @@ function generateKzRows(item) {
   let rows = '';
   let runningValue = item.guncelDeger;
   
-  periods.forEach((p, idx) => {
+  periods.forEach((p) => {
     const change = item[p.key] || 0;
     const periodEndValue = runningValue;
     runningValue -= change;
@@ -656,7 +630,6 @@ function renderPeriods(d){
 
 function applySortAndFilter(arr){
   let out = [...arr];
-  // Filtre kaldırıldı - sadece sıralama
   const cmp = {
     'kzDesc': (a,b)=> (b.guncelDeger-b.toplamYatirim) - (a.guncelDeger-a.toplamYatirim),
     'kzAsc':  (a,b)=> (a.guncelDeger-a.toplamYatirim) - (b.guncelDeger-b.toplamYatirim),
