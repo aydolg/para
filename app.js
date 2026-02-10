@@ -196,15 +196,17 @@ function ensureUI(){
           </select>
         </div>
         <div class="toolbar-group">
-          <span class="last-update" id="last-update">Son güncelleme: ${formatTime(AUTO_REFRESH.lastUpdate)}</span>
+          <span class="last-update" id="last-update">Son güncelleme: -</span>
         </div>
       </div>`;
     
-    // Toolbar'ı periods section'ın üstüne ekle
+    // TOOLBAR'I DÖNEMSEL PERFORMANS'IN ALTINA EKLE
+    const periodsSection = qs('#periods'); // Dönemsel performans kartları
     const content = qs('.content-section');
-    const periodsSection = qs('#periods')?.parentElement;
+    
     if (periodsSection && content) {
-      content.insertBefore(toolbar, periodsSection);
+      // periodsSection'dan sonraki kardeşin (Ürün Detayları başlığı) öncesine ekle
+      content.insertBefore(toolbar, periodsSection.nextElementSibling);
     } else {
       content?.insertBefore(toolbar, content.firstChild);
     }
@@ -219,8 +221,7 @@ function ensureUI(){
       if (AUTO_REFRESH.enabled){ startAutoRefresh(); } 
     };
   }
-
-  if (!qs('#modal')){
+   if (!qs('#modal')){
     const modal = document.createElement('div');
     modal.id = 'modal'; modal.className = 'modal';
     modal.innerHTML = `
