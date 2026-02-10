@@ -53,13 +53,29 @@ function formatTime(date) {
   return d.toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' });
 }
 
-function calculateHoldDays(alimTarihi) {
-  if (!alimTarihi) return null;
-  const alim = new Date(alimTarihi);
-  const now = new Date();
-  const diffTime = Math.abs(now - alim);
-  const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-  return diffDays;
+function calculateHoldDays(tarihStr) {
+  if (!tarihStr || typeof tarihStr !== 'string') return null;
+  
+  const parts = tarihStr.trim().split('.');
+  if (parts.length !== 3) return null;
+  
+  const gun = parseInt(parts[0], 10);
+  const ay = parseInt(parts[1], 10);
+  const yil = parseInt(parts[2], 10);
+  
+  if (isNaN(gun) || isNaN(ay) || isNaN(yil)) return null;
+  
+  const alimTarihi = new Date(yil, ay - 1, gun);
+  if (isNaN(alimTarihi.getTime())) return null;
+  
+  const bugun = new Date();
+  const alimGun = new Date(alimTarihi.getFullYear(), alimTarihi.getMonth(), alimTarihi.getDate());
+  const bugunGun = new Date(bugun.getFullYear(), bugun.getMonth(), bugun.getDate());
+  
+  const farkMs = bugunGun - alimGun;
+  const farkGun = Math.floor(farkMs / (1000 * 60 * 60 * 24));
+  
+  return farkGun >= 0 ? farkGun : 0;
 }
 
 function formatHoldTime(days) {
