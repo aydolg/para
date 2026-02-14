@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="tr" data-theme="dark-nebula">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
+  <meta name="color-scheme" content="dark" />
+  <meta name="theme-color" content="#0b1220" />
+  <title>Portföy Terminali Pro Max</title>
+
+  <!-- Preconnect & Resources -->
+  <link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin>
+
+  <!-- Global Styles (Dark Nebula Pro Max) -->
+  <link rel="stylesheet" href="style.css" />
+
+  <!-- PapaParse (CSV Parser) - Required by app.js -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+
+  <!-- App Script (Loaded at the end, after DOM is ready) -->
+  <script defer src="app.js"></script>
+</head>
+<body>
+  <!-- Skip link for accessibility -->
+  <a class="skip-link" href="#main">İçeriğe atla</a>
+
+  <!-- Fullscreen Loader / Splash -->
+  <div id="loader" class="loader" role="status" aria-live="polite" aria-busy="true">
+    <div class="loader-core">
+      <div class="loader-ring"></div>
+      <div class="loader-text">Veriler Analiz Ediliyor...</div>
+    </div>
+  </div>
+
+  <!-- Ticker (sticky top) -->
+  <header class="ticker-wrap" role="region" aria-label="Piyasa akışı">
+    <div class="ticker" id="ticker-content"></div>
+  </header>
+
+  <!-- App Root -->
+  <div id="app" class="app">
+    <!-- Header Section (sticky) -->
+    <section class="header-section" role="region" aria-label="Özet ve varlık grupları">
+      <div class="grid-summary" id="summary" role="region" aria-label="Portföy özeti"></div>
+
+      <h2 class="section-title">💼 Varlık Grupları</h2>
+      <div class="grid-types" id="types" role="list"></div>
+    </section>
+
+    <!-- Content Section -->
+    <section id="main" class="content-section" role="region" aria-label="Detaylar ve performans" tabindex="-1">
+      <h2 class="section-title">📈 Dönemsel Performans</h2>
+      <div id="periods" class="grid-periods" role="region" aria-label="Dönemsel performans kartları"></div>
+
+      <h2 id="detail-title" class="section-title">📦 Ürün Detayları</h2>
+
+      <div class="search-row">
+        <label for="search" class="sr-only">Ürün ara</label>
+        <input type="search" id="search" class="search" placeholder="Ürün ara..." aria-label="Ürün arama" autocomplete="off" inputmode="search" />
+      </div>
+
+      <div id="detail-list" class="detail-list" role="list"></div>
+    </section>
+  </div>
+
+  <!-- Toast / Inline Notifications (JS controls visibility) -->
+  <div id="toast" class="toast" role="status" aria-live="polite" aria-atomic="true" hidden></div>
+
+  <!-- NoScript Fallback -->
+  <noscript>
+    <div class="noscript">
+      Bu uygulamayı kullanmak için JavaScript etkin olmalıdır.
+    </div>
+  </noscript>
+
+  <!-- Optional Footer -->
+  <footer class="app-footer" aria-label="Uygulama alt bilgisi">
+    <small>Portföy Terminali Pro Max · Dark Nebula teması</small>
+  </footer>
+</body>
+</html>
