@@ -2,7 +2,7 @@
 <html lang="tr" data-theme="dark-nebula">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
   <meta name="color-scheme" content="dark" />
   <meta name="theme-color" content="#0b1220" />
   <title>Portföy Terminali Pro Max</title>
@@ -46,6 +46,9 @@
       <div class="grid-types" id="types" role="list"></div>
     </section>
 
+    <!-- Toolbar (Controls) -->
+    <div id="toolbar-container"></div>
+
     <!-- Content Section -->
     <section id="main" class="content-section" role="region" aria-label="Detaylar ve performans" tabindex="-1">
       <h2 class="section-title">📈 Dönemsel Performans</h2>
@@ -60,6 +63,18 @@
 
       <div id="detail-list" class="detail-list" role="list"></div>
     </section>
+  </div>
+
+  <!-- Modal (Hidden by default) -->
+  <div id="modal" class="modal" role="dialog" aria-modal="true" aria-labelledby="modal-title" hidden>
+    <div class="modal-backdrop"></div>
+    <div class="modal-card">
+      <div class="modal-header">
+        <div class="modal-title" id="modal-title">Ürün Detayı</div>
+        <button class="modal-close" aria-label="Kapat">&times;</button>
+      </div>
+      <div class="modal-body"></div>
+    </div>
   </div>
 
   <!-- Toast / Inline Notifications (JS controls visibility) -->
