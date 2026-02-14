@@ -142,7 +142,7 @@ img{max-width:100%; display:block}
 .detail-list{display:flex; flex-direction:column; gap:10px; margin-top:8px}
 .detail-item{position:relative; display:flex; align-items:center; justify-content:space-between; gap:12px;
   padding:12px; border:1px solid var(--line); border-radius:var(--radius); background:linear-gradient(145deg, rgba(17,24,39,.9), rgba(17,24,39,.7));
-  box-shadow:var(--shadow-soft); overflow:hidden}
+  box-shadow:var(--shadow-soft); overflow:hidden; min-height: 72px;}
 .detail-item::after{content:""; position:absolute; inset:0; border-radius:inherit; pointer-events:none; opacity:.85;
   background: conic-gradient(from var(--grad, 0deg), rgba(59,130,246,.0), rgba(59,130,246,.55), rgba(59,130,246,.0) 28%);
   mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
@@ -186,7 +186,7 @@ img{max-width:100%; display:block}
 ------------------------------ */
 .toast{position:fixed; right:14px; bottom:14px; max-width:min(420px, 90vw); padding:12px 14px; border-radius:12px;
   background:linear-gradient(180deg, rgba(17,24,39,.92), rgba(17,24,39,.78)); color:var(--text);
-  border:1px solid rgba(100,125,160,.25); box-shadow:var(--shadow-strong)}
+  border:1px solid rgba(100,125,160,.25); box-shadow:var(--shadow-strong); z-index: 1000;}
 
 /* ------------------------------
    8) Erişilebilirlik / Odak
@@ -231,3 +231,189 @@ img{max-width:100%; display:block}
    13) Tablolarda Metin Sarma (ileri kullanım)
 ------------------------------ */
 .wrap{white-space:normal; word-break:break-word}
+
+/* ==============================
+   MOBİL OPTİMİZASYONLARI
+   ============================== */
+
+/* ------------------------------
+   Toolbar (Kontroller)
+------------------------------ */
+.toolbar{display: grid; gap: 8px; padding: 8px var(--gutter); margin: 10px 0;}
+.toolbar .card{padding: 12px; display: flex; gap: 16px; align-items: center; justify-content: flex-start; flex-wrap: wrap; 
+  background: linear-gradient(180deg, rgba(17,24,39,.9), rgba(17,24,39,.7)); border: 1px solid var(--line); border-radius: 12px;}
+.toolbar-group{display: flex; gap: 8px; align-items: center; flex-wrap: wrap;}
+.toolbar select, .toolbar input[type="checkbox"]{background: rgba(17,24,39,.85); color: var(--text); border: 1px solid var(--line); 
+  border-radius: 8px; padding: 8px 12px; font-size: 12px; min-height: 36px;}
+.toolbar label{font-size: 11px; opacity: 0.8;}
+.last-update{font-size: 11px; opacity: 0.8; color: var(--accent-2); margin-left: auto; padding: 6px 12px; 
+  background: rgba(59,130,246,.1); border-radius: 6px;}
+.btn{padding: 10px 16px; border-radius: 8px; border: 1px solid var(--line); 
+  background: rgba(17,24,39,.85); color: var(--text); cursor: pointer; font-size: 12px; 
+  transition: all 0.2s; min-height: 40px; font-weight: 600;}
+.btn.primary{border-color: rgba(59,130,246,.6); background: rgba(59,130,246,.2); 
+  box-shadow: 0 0 12px rgba(59,130,246,.25);}
+.btn:active{transform: scale(0.98);}
+
+/* ------------------------------
+   Modal (Tam Ekran Mobil)
+------------------------------ */
+.modal{position: fixed; inset: 0; display: none; align-items: center; justify-content: center; z-index: 200;}
+.modal.active{display: flex;}
+.modal[hidden]{display: none !important;}
+.modal-backdrop{position: absolute; inset: 0; backdrop-filter: blur(8px); background: rgba(8,14,26,.85);}
+.modal-card{position: relative; width: min(720px, 95vw); max-height: 90vh; overflow-y: auto; border-radius: 14px; 
+  padding: 16px; z-index: 1; background: linear-gradient(145deg, rgba(17,24,39,.98), rgba(14,20,34,.95)); 
+  border: 1px solid var(--line); box-shadow: 0 20px 60px rgba(0,0,0,.5);}
+.modal-header{display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; 
+  padding-bottom: 12px; border-bottom: 1px solid var(--line); position: sticky; top: 0; 
+  background: linear-gradient(145deg, rgba(17,24,39,.98), rgba(14,20,34,.95)); z-index: 10;}
+.modal-title{font-weight: 800; font-size: 16px;}
+.modal-close{cursor: pointer; border: 0; background: transparent; color: var(--text); font-size: 28px; 
+  line-height: 1; padding: 0; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; 
+  border-radius: 8px; transition: background 0.2s;}
+.modal-close:hover{background: rgba(255,255,255,.1);}
+.modal-body{overflow-x: hidden;}
+
+/* Modal Grid */
+.modal-grid{display: grid; grid-template-columns: 1fr 1fr; gap: 12px;}
+.stat{border: 1px solid var(--line); border-radius: 12px; padding: 12px; background: rgba(17,24,39,.9);}
+.stat .small{font-size: 11px; opacity: 0.7; margin-bottom: 4px;}
+.stat .big{font-size: 14px; font-weight: 600;}
+
+/* ------------------------------
+   K/Z Tablosu (Yatay Kaydırma)
+------------------------------ */
+.kz-table-wrapper{overflow-x: auto; -webkit-overflow-scrolling: touch; margin: 10px -4px; padding: 0 4px;}
+.kz-table{width: 100%; min-width: 500px; border-collapse: collapse; font-size: 11px;}
+.kz-table th, .kz-table td{padding: 8px 6px; text-align: center; border: 1px solid var(--line); white-space: nowrap;}
+.kz-table th{background: rgba(59,130,246,.15); font-weight: 600; font-size: 10px; position: sticky; top: 0;}
+.kz-table .pos{color: var(--pos);}
+.kz-table .neg{color: var(--neg);}
+
+/* ------------------------------
+   Aylık Grafik
+------------------------------ */
+.monthly-chart-container{position: relative; width: 100%; height: 180px; margin-top: 10px;}
+.monthly-chart{width: 100%; height: 100%;}
+.chart-tooltip{position: absolute; background: rgba(0,0,0,.95); border: 1px solid var(--accent); 
+  padding: 8px 12px; border-radius: 8px; font-size: 12px; pointer-events: none; opacity: 0; 
+  transition: opacity .2s; z-index: 100; white-space: nowrap; box-shadow: 0 4px 20px rgba(0,0,0,.5);}
+.chart-tooltip.visible{opacity: 1;}
+.chart-legend{display: flex; gap: 16px; justify-content: center; margin-top: 8px; font-size: 11px; flex-wrap: wrap;}
+.chart-legend span{display: flex; align-items: center; gap: 4px;}
+.legend-dot{width: 8px; height: 8px; border-radius: 50%;}
+
+/* ------------------------------
+   Uyarı Formu
+------------------------------ */
+.alert-form{display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-top: 10px;}
+.alert-form label{font-size: 11px; opacity: 0.7; display: block; margin-bottom: 4px;}
+.alert-form input{width: 100%; padding: 10px; border-radius: 8px; border: 1px solid var(--line); 
+  background: rgba(17,24,39,.8); color: var(--text); font-size: 12px; min-height: 40px;}
+.modal-actions{display: flex; gap: 8px; justify-content: flex-end; margin-top: 12px;}
+
+/* ------------------------------
+   AI Paneli
+------------------------------ */
+.ai-panel{margin: 16px 0; border: 1px solid var(--accent); border-radius: 12px; overflow: hidden; 
+  animation: slideDown 0.3s ease;}
+.ai-header{display: flex; justify-content: space-between; align-items: center; padding: 12px 16px; 
+  background: rgba(59,130,246,.1); border-bottom: 1px solid var(--line);}
+.ai-content{padding: 16px;}
+.ai-summary-grid{display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 16px;}
+.ai-metric{background: rgba(59,130,246,.1); padding: 12px; border-radius: 8px; text-align: center;}
+.ai-insights{background: rgba(17,24,39,.5); padding: 12px; border-radius: 8px; margin-bottom: 12px;}
+.insight-item{padding: 6px 0; font-size: 12px; border-bottom: 1px solid rgba(255,255,255,.05);}
+.insight-item:last-child{border-bottom: none;}
+.ai-recommendations{background: rgba(245,158,11,.1); border: 1px solid rgba(245,158,11,.3); 
+  padding: 12px; border-radius: 8px;}
+.rec-item{display: flex; gap: 8px; align-items: flex-start; padding: 6px 0; font-size: 12px; color: #fbbf24;}
+@keyframes slideDown{from{opacity: 0; transform: translateY(-20px);} to{opacity: 1; transform: translateY(0);}}
+
+/* ------------------------------
+   Badge & Etiketler
+------------------------------ */
+.weight-badge{font-size: 9px; padding: 2px 6px; background: rgba(59,130,246,.2); border-radius: 4px; flex-shrink: 0;}
+.hold-badge{font-size: 9px; padding: 2px 6px; background: rgba(245,158,11,.15); color: #f59e0b; 
+  border-radius: 4px; margin-left: 6px; width: fit-content;}
+.percent-badge{font-size: 10px; padding: 2px 6px; border-radius: 4px; font-weight: 700; margin-left: 4px;}
+.percent-badge.pos{background: rgba(34,197,94,.2); color: var(--pos);}
+.percent-badge.neg{background: rgba(239,68,68,.2); color: var(--neg);}
+
+/* Uyarı Pulse Animasyonu */
+.alert-pulse{animation: alertPulse 1.4s ease-in-out infinite;}
+@keyframes alertPulse{0%{box-shadow: 0 0 0 0 rgba(239,68,68,.35);} 70%{box-shadow: 0 0 0 12px rgba(239,68,68,0);} 100%{box-shadow: 0 0 0 0 rgba(239,68,68,0);}}
+
+/* ==============================
+   MOBİL ÖZEL DÜZENLEMELER
+   ============================== */
+@media (max-width: 640px){
+  :root{--gutter: 12px;}
+  
+  .toolbar .card{flex-direction: column; align-items: stretch; gap: 12px;}
+  .toolbar-group{width: 100%; justify-content: space-between; flex-wrap: wrap; gap: 8px;}
+  .toolbar-group > *{flex: 1 1 auto;}
+  .last-update{margin-left: 0; margin-top: 8px; width: 100%; text-align: center;}
+  
+  .grid-summary{grid-template-columns: repeat(3, 1fr); gap: 6px;}
+  .grid-summary .card{padding: 10px 6px; min-height: 56px;}
+  .grid-summary .card .big{font-size: 13px;}
+  .grid-summary .card .small{font-size: 9px;}
+  
+  .grid-types{grid-template-columns: repeat(auto-fill, minmax(100px, 1fr)); gap: 8px;}
+  .grid-types .card{min-width: 90px; padding: 10px 12px;}
+  
+  .grid-periods{grid-template-columns: repeat(2, 1fr); gap: 8px;}
+  
+  .detail-item{padding: 14px; min-height: 80px; gap: 8px;}
+  .detail-info > div:first-child{font-size: 14px;}
+  .detail-val{font-size: 14px;}
+  
+  /* Modal Mobil */
+  .modal-card{width: 100vw; max-height: 100vh; border-radius: 0; padding: 12px;}
+  .modal-header{padding: 12px 4px;}
+  .modal-grid{grid-template-columns: 1fr; gap: 10px;}
+  .modal-title{font-size: 15px;}
+  
+  /* Tablo */
+  .kz-table-wrapper{margin: 8px -8px; padding: 0 8px;}
+  .kz-table{font-size: 10px;}
+  .kz-table th, .kz-table td{padding: 6px 4px;}
+  
+  /* Grafik */
+  .monthly-chart-container{height: 160px;}
+  
+  /* Form */
+  .alert-form{grid-template-columns: 1fr; gap: 12px;}
+  .alert-form input{min-height: 44px; font-size: 16px; /* iOS zoom önleme */}
+  
+  /* AI Panel */
+  .ai-summary-grid{grid-template-columns: 1fr; gap: 8px;}
+  .ai-metric{padding: 10px;}
+  .ai-content{padding: 12px;}
+  
+  /* Touch Optimizasyonu */
+  .btn{min-height: 44px; font-size: 14px;}
+  .type-card{min-height: 60px; display: flex; flex-direction: column; justify-content: center;}
+}
+
+/* Touch cihazlar için */
+@media (hover: none) and (pointer: coarse){
+  .detail-item, .type-card, .btn{min-height: 44px;}
+  .detail-item:active{transform: scale(0.99);}
+  .card:hover{transform: none;}
+  .card:active{transform: scale(0.98);}
+}
+
+/* Yatay mod mobil */
+@media (max-height: 500px) and (orientation: landscape){
+  .modal-card{max-height: 95vh;}
+  .monthly-chart-container{height: 120px;}
+}
+
+/* iOS Safe Area */
+@supports (padding: max(0px)){
+  .app{padding-bottom: max(40px, env(safe-area-inset-bottom));}
+  .toast{bottom: max(14px, env(safe-area-inset-bottom)); right: max(14px, env(safe-area-inset-right));}
+}
