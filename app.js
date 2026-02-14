@@ -225,6 +225,7 @@ const MOBILE_OPTIMIZER = {
     this.addSwipeSupport();
     this.optimizeModal();
     this.addTouchFeedback();
+    this.preventIOSZoom();
   },
   addSwipeSupport() {
     let touchStartX = 0;
@@ -251,6 +252,8 @@ const MOBILE_OPTIMIZER = {
   optimizeModal() {
     const modal = qs('#modal');
     if (!modal) return;
+    
+    // Modal açıldığında body scroll'u engelle
     const observer = new MutationObserver(mutations => {
       mutations.forEach(m => {
         if (m.target.classList.contains('active')) {
@@ -277,6 +280,13 @@ const MOBILE_OPTIMIZER = {
       const el = e.target.closest('.detail-item, .type-card, .btn');
       if (el) setTimeout(() => el.style.transform = '', 100);
     }, { passive: true });
+  },
+  preventIOSZoom() {
+    // iOS'ta input focus olduğunda zoom olmasını engelle
+    const meta = document.querySelector('meta[name="viewport"]');
+    if (meta && /iPhone|iPad|iPod/.test(navigator.userAgent)) {
+      meta.setAttribute('content', 'width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no');
+    }
   }
 };
 
@@ -333,126 +343,11 @@ async function init() {
   }
 }
 
-(function injectStyles() {
-  if (qs('#dynamic-styles')) return;
-  const css = `
-    :root { --pos: #22c55e; --neg: #ef4444; --accent: #3b82f6; --accent-2: #60a5fa; --text: #e5e7eb; --line: rgba(255,255,255,.08); --gutter: 16px; }
-    * { box-sizing: border-box; }
-    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #0b0f19; color: var(--text); margin: 0; line-height: 1.5; }
-    
-    .toolbar { display: grid; gap: 8px; padding: 8px var(--gutter); margin: 10px 0; }
-    .toolbar .card { padding: 12px; display: flex; gap: 16px; align-items: center; justify-content: flex-start; flex-wrap: wrap; background: linear-gradient(180deg, rgba(17,24,39,.9), rgba(17,24,39,.7)); border: 1px solid var(--line); border-radius: 12px; }
-    .toolbar-group { display: flex; gap: 8px; align-items: center; }
-    .toolbar select, .toolbar input[type="checkbox"] { background: rgba(17,24,39,.85); color: var(--text); border: 1px solid var(--line); border-radius: 8px; padding: 6px 10px; font-size: 12px; }
-    .last-update { font-size: 11px; opacity: 0.8; color: var(--accent-2); margin-left: auto; padding: 4px 10px; background: rgba(59,130,246,.1); border-radius: 6px; }
-    .btn { padding: 8px 12px; border-radius: 8px; border: 1px solid var(--line); background: rgba(17,24,39,.85); color: var(--text); cursor: pointer; font-size: 12px; transition: all 0.2s; }
-    .btn.primary { border-color: rgba(59,130,246,.6); background: rgba(59,130,246,.2); box-shadow: 0 0 12px rgba(59,130,246,.25); }
-    
-    #summary { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; padding: 0 var(--gutter); margin: 8px 0; }
-    #summary .card { padding: 12px 8px; text-align: center; background: linear-gradient(145deg, rgba(17,24,39,.9), rgba(17,24,39,.7)); border: 1px solid var(--line); border-radius: 12px; }
-    #summary .big { font-size: 14px; font-weight: 700; }
-    #summary .small { font-size: 10px; opacity: 0.7; }
-    
-    #types { display: flex; overflow-x: auto; gap: 8px; padding: 0 var(--gutter); margin: 8px 0; scrollbar-width: none; -ms-overflow-style: none; }
-    #types::-webkit-scrollbar { display: none; }
-    #types .card { flex: 0 0 auto; min-width: 100px; padding: 10px 14px; text-align: center; background: rgba(17,24,39,.8); border: 1px solid var(--line); border-radius: 10px; cursor: pointer; scroll-snap-align: start; }
-    #types .card.active { border-color: var(--accent); background: rgba(59,130,246,.15); }
-    #types .big { font-size: 12px; }
-    
-    #periods { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; padding: 0 var(--gutter); margin: 8px 0; }
-    #periods .card { padding: 12px 8px; text-align: center; background: rgba(17,24,39,.8); border: 1px solid var(--line); border-radius: 10px; }
-    #periods .big { font-size: 12px; display: flex; flex-direction: column; gap: 2px; }
-    #periods .big span { font-size: 10px; opacity: 0.8; }
-    
-    #detail-list { display: flex; flex-direction: column; gap: 10px; padding: 0 var(--gutter); margin: 8px 0; }
-    .detail-item { display: grid; grid-template-columns: 1fr auto; gap: 8px; padding: 12px; background: linear-gradient(145deg, rgba(17,24,39,.95), rgba(14,20,34,.9)); border: 1px solid var(--line); border-radius: 12px; cursor: pointer; position: relative; overflow: hidden; min-height: 80px; }
-    .detail-info { grid-column: 1 / 2; display: flex; flex-direction: column; justify-content: center; min-width: 0; }
-    .detail-info > div:first-child { font-size: 14px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: flex; align-items: center; gap: 6px; margin-bottom: 4px; }
-    .detail-info > div:nth-child(2) { font-size: 11px; opacity: 0.8; display: flex; flex-wrap: wrap; gap: 8px; }
-    .weight-badge { font-size: 9px; padding: 2px 6px; background: rgba(59,130,246,.2); border-radius: 4px; flex-shrink: 0; }
-    .hold-badge { font-size: 9px; padding: 2px 6px; background: rgba(245,158,11,.15); color: #f59e0b; border-radius: 4px; margin-left: 6px; width: fit-content; }
-    .detail-values { grid-column: 2 / 3; display: flex; flex-direction: column; align-items: flex-end; justify-content: center; gap: 4px; min-width: 85px; }
-    .detail-val { font-size: 15px; font-weight: 700; white-space: nowrap; }
-    .detail-perc { display: flex; flex-direction: column; align-items: flex-end; gap: 2px; font-size: 11px; }
-    .percent-badge { font-size: 10px; padding: 2px 6px; border-radius: 4px; font-weight: 700; margin-left: 4px; }
-    .percent-badge.pos { background: rgba(34,197,94,.2); color: var(--pos); }
-    .percent-badge.neg { background: rgba(239,68,68,.2); color: var(--neg); }
-    .alert-pulse { animation: alertPulse 1.4s ease-in-out infinite; }
-    @keyframes alertPulse { 0% { box-shadow: 0 0 0 0 rgba(239,68,68,.35); } 70% { box-shadow: 0 0 0 12px rgba(239,68,68,0); } 100% { box-shadow: 0 0 0 0 rgba(239,68,68,0); } }
-    
-    .modal { position: fixed; inset: 0; display: none; align-items: center; justify-content: center; z-index: 200; }
-    .modal.active { display: flex; }
-    .modal-backdrop { position: absolute; inset: 0; backdrop-filter: blur(8px); background: rgba(8,14,26,.7); }
-    .modal-card { position: relative; width: min(720px, 95vw); max-height: 90vh; overflow-y: auto; border-radius: 14px; padding: 16px; z-index: 1; background: linear-gradient(145deg, rgba(17,24,39,.98), rgba(14,20,34,.95)); border: 1px solid var(--line); box-shadow: 0 20px 60px rgba(0,0,0,.5); }
-    .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; padding-bottom: 12px; border-bottom: 1px solid var(--line); }
-    .modal-title { font-weight: 800; font-size: 16px; }
-    .modal-close { cursor: pointer; border: 0; background: transparent; color: var(--text); font-size: 24px; line-height: 1; }
-    .modal-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-    .stat { border: 1px solid var(--line); border-radius: 12px; padding: 12px; background: rgba(17,24,39,.9); }
-    .stat .small { font-size: 11px; opacity: 0.7; margin-bottom: 4px; }
-    .stat .big { font-size: 14px; font-weight: 600; }
-    
-    .kz-table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 11px; }
-    .kz-table th, .kz-table td { padding: 6px 4px; text-align: center; border: 1px solid var(--line); }
-    .kz-table th { background: rgba(59,130,246,.15); font-weight: 600; font-size: 10px; }
-    .kz-table .pos { color: var(--pos); }
-    .kz-table .neg { color: var(--neg); }
-    
-    .monthly-chart-container { position: relative; width: 100%; height: 160px; margin-top: 10px; }
-    .monthly-chart { width: 100%; height: 100%; }
-    .chart-tooltip { position: absolute; background: rgba(0,0,0,.95); border: 1px solid var(--accent); padding: 8px 12px; border-radius: 8px; font-size: 12px; pointer-events: none; opacity: 0; transition: opacity .2s; z-index: 100; white-space: nowrap; box-shadow: 0 4px 20px rgba(0,0,0,.5); }
-    .chart-tooltip.visible { opacity: 1; }
-    .chart-legend { display: flex; gap: 16px; justify-content: center; margin-top: 8px; font-size: 11px; }
-    .chart-legend span { display: flex; align-items: center; gap: 4px; }
-    .legend-dot { width: 8px; height: 8px; border-radius: 50%; }
-    
-    .alert-form { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-top: 10px; }
-    .alert-form label { font-size: 11px; opacity: 0.7; display: block; margin-bottom: 4px; }
-    .alert-form input { width: 100%; padding: 8px; border-radius: 8px; border: 1px solid var(--line); background: rgba(17,24,39,.8); color: var(--text); font-size: 12px; }
-    .modal-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 12px; }
-    
-    .ai-panel { margin: 16px 0; border: 1px solid var(--accent); border-radius: 12px; overflow: hidden; animation: slideDown 0.3s ease; }
-    .ai-header { display: flex; justify-content: space-between; align-items: center; padding: 12px 16px; background: rgba(59,130,246,.1); border-bottom: 1px solid var(--line); }
-    .ai-content { padding: 16px; }
-    .ai-summary-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 16px; }
-    .ai-metric { background: rgba(59,130,246,.1); padding: 12px; border-radius: 8px; text-align: center; }
-    .ai-insights { background: rgba(17,24,39,.5); padding: 12px; border-radius: 8px; margin-bottom: 12px; }
-    .insight-item { padding: 6px 0; font-size: 12px; border-bottom: 1px solid rgba(255,255,255,.05); }
-    .insight-item:last-child { border-bottom: none; }
-    .ai-recommendations { background: rgba(245,158,11,.1); border: 1px solid rgba(245,158,11,.3); padding: 12px; border-radius: 8px; }
-    .rec-item { display: flex; gap: 8px; align-items: flex-start; padding: 6px 0; font-size: 12px; color: #fbbf24; }
-    @keyframes slideDown { from { opacity: 0; transform: translateY(-20px); } to { opacity: 1; transform: translateY(0); } }
-    
-    @media (max-width: 640px) {
-      :root { --gutter: 12px; }
-      .toolbar .card { flex-direction: column; align-items: stretch; }
-      .toolbar-group { width: 100%; justify-content: space-between; flex-wrap: wrap; }
-      .last-update { margin-left: 0; margin-top: 8px; width: 100%; text-align: center; }
-      #summary { grid-template-columns: repeat(3, 1fr); gap: 6px; }
-      #summary .card { padding: 10px 6px; }
-      #summary .big { font-size: 13px; }
-      #types .card { min-width: 90px; padding: 10px 12px; }
-      #periods { grid-template-columns: repeat(2, 1fr); }
-      .detail-item { padding: 10px; min-height: 70px; }
-      .modal-grid { grid-template-columns: 1fr; }
-      .modal-card { padding: 12px; }
-      .alert-form { grid-template-columns: 1fr; }
-      .ai-summary-grid { grid-template-columns: 1fr; }
-      .monthly-chart-container { height: 140px; }
-    }
-    
-    @media (hover: none) and (pointer: coarse) {
-      .detail-item, .type-card, .btn { min-height: 44px; }
-    }
-  `;
-  const style = document.createElement('style');
-  style.id = 'dynamic-styles';
-  style.textContent = css;
-  document.head.appendChild(style);
-})();
-
 function ensureUI() {
-  if (qs('.toolbar')) return;
+  // Toolbar'ı toolbar-container'a yerleştir
+  const toolbarContainer = qs('#toolbar-container');
+  if (!toolbarContainer || qs('.toolbar')) return;
+  
   const toolbar = document.createElement('div');
   toolbar.className = 'toolbar';
   toolbar.innerHTML = `
@@ -484,10 +379,7 @@ function ensureUI() {
       </div>
     </div>`;
   
-  const periodsSection = qs('#periods');
-  if (periodsSection && periodsSection.parentNode) {
-    periodsSection.parentNode.insertBefore(toolbar, periodsSection.nextSibling);
-  }
+  toolbarContainer.appendChild(toolbar);
 
   qs('#sort-select').onchange = e => { SORT_KEY = e.target.value; renderAll(); };
   qs('#autoref').onchange = e => {
@@ -500,22 +392,15 @@ function ensureUI() {
   };
   qs('#ai-analyze-btn').onclick = () => renderAIAnalysis(DATA);
 
-  if (!qs('#modal')) {
-    const modal = document.createElement('div');
-    modal.id = 'modal';
-    modal.className = 'modal';
-    modal.innerHTML = `
-      <div class="modal-backdrop"></div>
-      <div class="modal-card">
-        <div class="modal-header">
-          <div class="modal-title">Ürün Detayı</div>
-          <button class="modal-close">&times;</button>
-        </div>
-        <div class="modal-body"></div>
-      </div>`;
-    document.body.appendChild(modal);
+  // Modal event listener'ları
+  const modal = qs('#modal');
+  if (modal) {
     modal.addEventListener('click', e => {
       if (e.target.classList.contains('modal-backdrop') || e.target.classList.contains('modal-close')) closeModal();
+    });
+    // Escape tuşu ile kapatma
+    document.addEventListener('keydown', e => {
+      if (e.key === 'Escape' && modal.classList.contains('active')) closeModal();
     });
   }
 }
@@ -715,7 +600,7 @@ function openModal(item) {
     <div class="modal-grid">
       <div class="stat">
         <div class="small">Ürün</div>
-        <div style="font-size:16px; font-weight:700">${item.urun}</div>
+        <div style="font-size:16px; font-weight:700; word-break: break-word;">${item.urun}</div>
         <div class="small" style="margin-top:6px">
           ${item.tur} · Ağırlık: <b>${weight}%</b>
           ${holdText !== 'Bilinmiyor' ? `<span class="hold-badge">⏱ ${holdText}</span>` : ''}
@@ -752,20 +637,22 @@ function openModal(item) {
       
       <div class="stat" style="grid-column: 1 / -1">
         <div class="small">📈 Tüm Dönemler K/Z</div>
-        <table class="kz-table">
-          <thead>
-            <tr>
-              <th>Dönem</th>
-              <th>Değişim</th>
-              <th>Dönem Sonu</th>
-              <th>K/Z</th>
-              <th>Getiri</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${generateKzRows(item)}
-          </tbody>
-        </table>
+        <div class="kz-table-wrapper">
+          <table class="kz-table">
+            <thead>
+              <tr>
+                <th>Dönem</th>
+                <th>Değişim</th>
+                <th>Dönem Sonu</th>
+                <th>K/Z</th>
+                <th>Getiri</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${generateKzRows(item)}
+            </tbody>
+          </table>
+        </div>
       </div>
       
       <div class="stat" style="grid-column: 1 / -1">
@@ -831,6 +718,7 @@ function openModal(item) {
   };
 
   modal.classList.add('active');
+  modal.hidden = false;
 }
 
 function generateKzRows(item) {
@@ -868,7 +756,11 @@ function generateKzRows(item) {
 }
 
 function closeModal() {
-  qs('#modal')?.classList.remove('active');
+  const modal = qs('#modal');
+  if (modal) {
+    modal.classList.remove('active');
+    setTimeout(() => modal.hidden = true, 300);
+  }
 }
 
 function renderAll() {
@@ -1039,7 +931,7 @@ function renderAIAnalysis(data) {
           <div style="font-size: 11px; opacity: 0.7;">${new Date().toLocaleTimeString('tr-TR')}</div>
         </div>
       </div>
-      <button onclick="this.closest('.ai-panel').remove()" style="background: none; border: none; color: var(--text); font-size: 20px; cursor: pointer;">×</button>
+      <button onclick="this.closest('.ai-panel').remove()" style="background: none; border: none; color: var(--text); font-size: 20px; cursor: pointer; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; border-radius: 8px;">×</button>
     </div>
     <div class="ai-content">
       <div class="ai-summary-grid">
@@ -1112,7 +1004,7 @@ function renderAIAnalysis(data) {
 
   const toolbar = qs('.toolbar');
   if (toolbar && toolbar.parentNode) {
-    toolbar.parentNode.insertBefore(div, toolbar);
+    toolbar.parentNode.insertBefore(div, toolbar.nextSibling);
   }
 }
 
@@ -1174,14 +1066,19 @@ function stopAutoRefresh() {
 }
 
 // Arama fonksiyonu
-qs('#search')?.addEventListener('input', e => {
-  const q = e.target.value.toLowerCase();
-  const items = qsa('.detail-item');
-  requestAnimationFrame(() => {
-    items.forEach(it => {
-      it.style.display = it.textContent.toLowerCase().includes(q) ? '' : 'none';
+document.addEventListener('DOMContentLoaded', () => {
+  const searchInput = qs('#search');
+  if (searchInput) {
+    searchInput.addEventListener('input', e => {
+      const q = e.target.value.toLowerCase();
+      const items = qsa('.detail-item');
+      requestAnimationFrame(() => {
+        items.forEach(it => {
+          it.style.display = it.textContent.toLowerCase().includes(q) ? '' : 'none';
+        });
+      });
     });
-  });
+  }
 });
 
 document.addEventListener('DOMContentLoaded', init);
