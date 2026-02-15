@@ -6,7 +6,7 @@
   inherits: false;
 }
 
-/* Firefox fallback - DÜZELTİLDİ */
+/* Firefox fallback */
 @supports not (background: conic-gradient(from var(--grad), red, blue)) {
   .detail-item::after {
     background: linear-gradient(120deg, rgba(59,130,246,.0), rgba(59,130,246,.55), rgba(59,130,246,.0));
@@ -377,32 +377,91 @@ img{max-width:100%; display:block}
   .detail-info > div:first-child{font-size: 14px;}
   .detail-val{font-size: 14px;}
 
-  /* Modal Mobil */
-  .modal-card{width: 100vw; max-height: 100vh; border-radius: 0; padding: 12px;}
-  .modal-header{padding: 12px 4px;}
-  .modal-grid{grid-template-columns: 1fr; gap: 10px;}
-  .modal-title{font-size: 15px;}
-
-  /* Tablo */
-  .kz-table-wrapper{margin: 8px -8px; padding: 0 8px;}
-  .kz-table{font-size: 10px;}
-  .kz-table th, .kz-table td{padding: 6px 4px;}
-
+  /* Modal Mobil - 2 SÜTUNLU DÜZEN */
+  .modal-card{
+    width: 100vw;
+    max-height: 100vh;
+    border-radius: 0;
+    padding: 8px;
+  }
+  .modal-body{padding: 0;}
+  .modal-grid{
+    display: grid;
+    grid-template-columns: 1fr 1fr !important;
+    gap: 8px;
+    padding: 0;
+  }
+  .modal-grid > .stat:nth-child(1),
+  .modal-grid > .stat:nth-child(2){
+    grid-column: span 1;
+  }
+  .modal-grid > .stat:nth-child(3){
+    grid-column: 1 / -1;
+  }
+  .modal-grid > .stat:nth-child(3) > div:last-child{
+    display: grid;
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 6px;
+  }
+  .modal-grid > .stat:nth-child(4),
+  .modal-grid > .stat:nth-child(5),
+  .modal-grid > .stat:nth-child(6){
+    grid-column: 1 / -1;
+  }
+  
+  /* K/Z Tablosu */
+  .kz-table{
+    min-width: 100%;
+    font-size: 9px;
+  }
+  .kz-table th,
+  .kz-table td{
+    padding: 4px 2px;
+  }
+  .kz-table th{font-size: 8px;}
+  
   /* Grafik */
-  .monthly-chart-container{height: 160px;}
+  .monthly-chart-container{height: 140px;}
+  .chart-legend{font-size: 9px; gap: 8px;}
+  
+  /* Fiyat Uyarıları - 2 SÜTUN */
+  .alert-form{
+    display: grid;
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 8px;
+  }
+  .alert-form label{font-size: 9px;}
+  .alert-form input{padding: 8px; font-size: 12px; min-height: 36px;}
+  
+  /* Modal Actions */
+  .modal-actions{
+    grid-column: 1 / -1;
+    display: flex;
+    gap: 8px;
+    margin-top: 8px;
+  }
+  .modal-actions .btn{
+    flex: 1;
+    padding: 8px;
+    font-size: 11px;
+  }
+  
+  /* Stat kartları */
+  .stat{padding: 8px;}
+  .stat .small{font-size: 9px;}
+  .stat .big{font-size: 12px;}
+  .modal-header{padding: 8px 4px; margin-bottom: 8px;}
+  .modal-title{font-size: 14px;}
+  .modal-close{width: 36px; height: 36px; font-size: 24px;}
+}
 
-  /* Form */
-  .alert-form{grid-template-columns: 1fr; gap: 12px;}
-  .alert-form input{min-height: 44px; font-size: 16px; /* iOS zoom önleme */}
-
-  /* AI Panel */
-  .ai-summary-grid{grid-template-columns: 1fr; gap: 8px;}
-  .ai-metric{padding: 10px;}
-  .ai-content{padding: 12px;}
-
-  /* Touch Optimizasyonu */
-  .btn{min-height: 44px; font-size: 14px;}
-  .type-card{min-height: 60px; display: flex; flex-direction: column; justify-content: center;}
+/* Çok küçük ekranlar */
+@media (max-width: 480px){
+  .modal-grid{gap: 6px;}
+  .stat{padding: 6px;}
+  .kz-table th,
+  .kz-table td{padding: 3px 1px; font-size: 8px;}
+  .monthly-chart-container{height: 120px;}
 }
 
 /* Touch cihazlar için */
@@ -426,57 +485,28 @@ img{max-width:100%; display:block}
 }
 
 /* ==============================
-   EKLENEN MOBİL İYİLEŞTİRMELER
+   TICKER İÇERİK DÜZENLEMELERİ
    ============================== */
-
-/* Mobilde detail-item düzeni - DÜZELTİLDİ */
-@media (max-width: 480px) {
-  .detail-item {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 8px;
-  }
-  
-  .detail-values {
-    width: 100%;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-  }
-  
-  .detail-perc {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-  }
-  
-  .percent-badge {
-    font-size: 11px;
-    padding: 4px 8px;
-  }
-  
-  .weight-badge {
-    display: inline-block;
-    margin-left: 4px;
-  }
+.ticker-item{
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 10px 16px;
+  font-weight: 600;
+  font-size: 14px;
+  border-right: 1px solid rgba(255,255,255,.06);
+  color: #cfe2ff;
+  white-space: nowrap;
 }
-
-/* AI panel mobil düzen - DÜZELTİLDİ */
-@media (max-width: 640px) {
-  .ai-summary-grid {
-    grid-template-columns: 1fr;
-  }
-  
-  .ai-metric {
-    padding: 8px;
-  }
-  
-  .ai-content {
-    padding: 12px 10px;
-  }
-  
-  .insight-item {
-    font-size: 11px;
-    padding: 8px 0;
-  }
+.ticker-item .change{
+  font-size: 12px;
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: rgba(0,0,0,.2);
+}
+.ticker-item .change.pos{color: #22c55e;}
+.ticker-item .change.neg{color: #ef4444;}
+@media (max-width: 640px){
+  .ticker-item{padding: 8px 12px; font-size: 12px;}
+  .ticker-item .change{font-size: 10px; padding: 2px 4px;}
 }
