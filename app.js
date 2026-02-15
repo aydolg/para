@@ -271,7 +271,6 @@ const MOBILE_OPTIMIZER = {
     });
     observer.observe(modal, { attributes: true, attributeFilter: ['class'] });
   },
-  // DÜZELTİLDİ: Touch feedback iyileştirildi
   addTouchFeedback() {
     document.addEventListener('touchstart', e => {
       const el = e.target.closest('.detail-item, .type-card, .btn');
@@ -308,12 +307,54 @@ const MOBILE_OPTIMIZER = {
   }
 };
 
+// === TICKER İÇERİĞİ OLUŞTURMA - YENİ FONKSİYON ===
+function updateTicker() {
+  const ticker = qs('#ticker-content');
+  if (!ticker) return;
+  
+  let html = '';
+  
+  // Tüm ürünler için ticker öğeleri
+  DATA.forEach(item => {
+    const kz = item.guncelDeger - item.toplamYatirim;
+    const kzPercent = item.toplamYatirim ? ((kz / item.toplamYatirim) * 100).toFixed(1) : 0;
+    const changeClass = kzPercent >= 0 ? 'pos' : 'neg';
+    const changeSymbol = kzPercent >= 0 ? '▲' : '▼';
+    
+    html += `
+      <div class="ticker-item">
+        <span>${item.urun}</span>
+        <span class="change ${changeClass}">${changeSymbol} %${Math.abs(kzPercent)}</span>
+      </div>
+    `;
+  });
+  
+  // Toplam portföy değeri
+  const totalValue = sum(DATA, 'guncelDeger');
+  const totalCost = sum(DATA, 'toplamYatirim');
+  const totalKz = totalValue - totalCost;
+  const totalPercent = totalCost ? ((totalKz / totalCost) * 100).toFixed(1) : 0;
+  const totalClass = totalKz >= 0 ? 'pos' : 'neg';
+  const totalSymbol = totalKz >= 0 ? '▲' : '▼';
+  
+  html += `
+    <div class="ticker-item">
+      <span>📊 TOPLAM</span>
+      <span class="change ${totalClass}">${totalSymbol} %${Math.abs(totalPercent)}</span>
+    </div>
+  `;
+  
+  // Sonsuz döngü için aynı içeriği tekrar ekle
+  html += html;
+  
+  ticker.innerHTML = html;
+}
+
 // === ANA FONKSIYONLAR ===
 async function init() {
   const loader = qs('#loader');
   if (loader) loader.removeAttribute('hidden');
   
-  // DÜZELTİLDİ: Cache'i temizle
   CACHE = {};
 
   try {
@@ -353,12 +394,11 @@ async function init() {
     MOBILE_OPTIMIZER.init();
     showToast(`${DATA.length} ürün yüklendi`);
     
-    // DÜZELTİLDİ: Periyodik cache temizliği
     setInterval(() => {
       if (Object.keys(CACHE).length > 20) {
         CACHE = {};
       }
-    }, 300000); // 5 dakikada bir
+    }, 300000);
 
   } catch (err) {
     console.error("Hata:", err);
@@ -611,6 +651,7 @@ function drawMonthlyChart(canvas, data, tooltip) {
   };
 }
 
+// === MODAL AÇMA FONKSİYONU - GÜNCELLENDİ (2 sütunlu mobil düzen) ===
 function openModal(item) {
   const modal = qs('#modal');
   const body = qs('.modal-body', modal);
@@ -626,43 +667,48 @@ function openModal(item) {
 
   body.innerHTML = `
     <div class="modal-grid">
+      <!-- Ürün Kartı -->
       <div class="stat">
         <div class="small">Ürün</div>
-        <div style="font-size:16px; font-weight:700; word-break: break-word;">${item.urun}</div>
+        <div style="font-size:14px; font-weight:700; word-break: break-word;">${item.urun}</div>
         <div class="small" style="margin-top:6px">
           ${item.tur} · Ağırlık: <b>${weight}%</b>
           ${holdText !== 'Bilinmiyor' ? `<span class="hold-badge">⏱ ${holdText}</span>` : ''}
         </div>
       </div>
+      
+      <!-- Değerler Kartı -->
       <div class="stat">
         <div class="small">Değerler</div>
-        <div class="big">Güncel: ${formatTRY(item.guncelDeger)}</div>
-        <div class="big">Maliyet: ${formatTRY(item.toplamYatirim)}</div>
-        <div class="big ${kz >= 0 ? 'pos' : 'neg'}">K/Z: ${formatTRY(kz)}</div>
+        <div class="big" style="font-size:13px">Güncel: ${formatTRY(item.guncelDeger)}</div>
+        <div class="big" style="font-size:13px">Maliyet: ${formatTRY(item.toplamYatirim)}</div>
+        <div class="big" style="font-size:13px; ${kz >= 0 ? 'color:var(--pos)' : 'color:var(--neg)'}">K/Z: ${formatTRY(kz)}</div>
       </div>
       
+      <!-- Adet ve Birim Bilgileri - 2 sütun -->
       <div class="stat" style="grid-column: 1 / -1">
         <div class="small">📊 Adet ve Birim Bilgileri</div>
-        <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; margin-top: 8px;">
-          <div style="text-align: center; padding: 10px; background: rgba(59,130,246,.1); border-radius: 8px;">
-            <div style="font-size: 10px; opacity: 0.7">Adet</div>
-            <div style="font-weight: 700; font-size: 14px">${adet.toLocaleString('tr-TR')}</div>
+        <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 6px; margin-top: 6px;">
+          <div style="text-align: center; padding: 8px; background: rgba(59,130,246,.1); border-radius: 6px;">
+            <div style="font-size: 9px; opacity: 0.7">Adet</div>
+            <div style="font-weight: 700; font-size: 13px">${adet.toLocaleString('tr-TR')}</div>
           </div>
-          <div style="text-align: center; padding: 10px; background: rgba(59,130,246,.1); border-radius: 8px;">
-            <div style="font-size: 10px; opacity: 0.7">Ort. Maliyet</div>
-            <div style="font-weight: 700; font-size: 14px">${formatTRY(birimMaliyet)}</div>
+          <div style="text-align: center; padding: 8px; background: rgba(59,130,246,.1); border-radius: 6px;">
+            <div style="font-size: 9px; opacity: 0.7">Ort. Maliyet</div>
+            <div style="font-weight: 700; font-size: 13px">${formatTRY(birimMaliyet)}</div>
           </div>
-          <div style="text-align: center; padding: 10px; background: rgba(34,197,94,.1); border-radius: 8px;">
-            <div style="font-size: 10px; opacity: 0.7">Güncel Fiyat</div>
-            <div style="font-weight: 700; font-size: 14px; color: var(--pos)">${formatTRY(birimGuncel)}</div>
+          <div style="text-align: center; padding: 8px; background: rgba(34,197,94,.1); border-radius: 6px;">
+            <div style="font-size: 9px; opacity: 0.7">Güncel Fiyat</div>
+            <div style="font-weight: 700; font-size: 13px; color: var(--pos)">${formatTRY(birimGuncel)}</div>
           </div>
-          <div style="text-align: center; padding: 10px; background: ${kz >= 0 ? 'rgba(34,197,94,.1)' : 'rgba(239,68,68,.1)'}; border-radius: 8px;">
-            <div style="font-size: 10px; opacity: 0.7">Birim K/Z</div>
-            <div style="font-weight: 700; font-size: 14px; color: ${kz >= 0 ? 'var(--pos)' : 'var(--neg)'}">${formatTRY(birimGuncel - birimMaliyet)}</div>
+          <div style="text-align: center; padding: 8px; background: ${kz >= 0 ? 'rgba(34,197,94,.1)' : 'rgba(239,68,68,.1)'}; border-radius: 6px;">
+            <div style="font-size: 9px; opacity: 0.7">Birim K/Z</div>
+            <div style="font-weight: 700; font-size: 13px; color: ${kz >= 0 ? 'var(--pos)' : 'var(--neg)'}">${formatTRY(birimGuncel - birimMaliyet)}</div>
           </div>
         </div>
       </div>
       
+      <!-- Tüm Dönemler K/Z Tablosu -->
       <div class="stat" style="grid-column: 1 / -1">
         <div class="small">📈 Tüm Dönemler K/Z</div>
         <div class="kz-table-wrapper">
@@ -683,6 +729,7 @@ function openModal(item) {
         </div>
       </div>
       
+      <!-- Aylık Performans Grafiği -->
       <div class="stat" style="grid-column: 1 / -1">
         <div class="small">📊 Aylık Performans (Son 12 Ay)</div>
         <div class="monthly-chart-container">
@@ -691,28 +738,29 @@ function openModal(item) {
         </div>
         <div class="chart-legend">
           <span><span class="legend-dot" style="background: rgba(59,130,246,1)"></span>Portföy Değeri</span>
-          <span><span class="legend-dot" style="background: rgba(34,197,94,1)"></span>K/Z (Noktalı)</span>
+          <span><span class="legend-dot" style="background: rgba(34,197,94,1)"></span>K/Z</span>
         </div>
       </div>
       
+      <!-- Fiyat Uyarıları - 2 sütun -->
       <div class="stat" style="grid-column: 1 / -1">
         <div class="small">🔔 Fiyat Uyarıları</div>
         <div class="alert-form">
           <div>
             <label>Güncel Değer ≥</label>
-            <input id="al-guncel" type="number" placeholder="örn: 100000" value="${alerts.guncel || ''}">
+            <input id="al-guncel" type="number" placeholder="100000" value="${alerts.guncel || ''}">
           </div>
           <div>
             <label>K/Z ≥</label>
-            <input id="al-kz" type="number" placeholder="örn: 5000" value="${alerts.kz || ''}">
+            <input id="al-kz" type="number" placeholder="5000" value="${alerts.kz || ''}">
           </div>
           <div>
             <label>Günlük % ≥</label>
-            <input id="al-dp" type="number" step="0.1" placeholder="örn: 2.5" value="${alerts.dailyPerc || ''}">
+            <input id="al-dp" type="number" step="0.1" placeholder="2.5" value="${alerts.dailyPerc || ''}">
           </div>
         </div>
         <div class="modal-actions">
-          <button class="btn" id="al-remove">Uyarıları Sil</button>
+          <button class="btn" id="al-remove">Sil</button>
           <button class="btn primary" id="al-save">Kaydet</button>
         </div>
       </div>
@@ -791,6 +839,7 @@ function closeModal() {
   }
 }
 
+// === RENDERALL FONKSİYONU - GÜNCELLENDİ (ticker güncelleme eklendi) ===
 function renderAll() {
   const key = `filter:${ACTIVE}`;
   let d = CACHE[key];
@@ -802,6 +851,7 @@ function renderAll() {
   renderTypes();
   renderPeriods(d);
   renderDetails(d);
+  updateTicker(); // Ticker'ı güncelle
   checkAlerts();
   updateLastUpdateTime();
 }
@@ -1036,7 +1086,6 @@ function renderAIAnalysis(data) {
   }
 }
 
-// DÜZELTİLDİ: checkAlerts fonksiyonu
 function checkAlerts() {
   qsa('.detail-item').forEach(el => el.classList.remove('alert-pulse'));
   DATA.forEach(item => {
@@ -1048,7 +1097,7 @@ function checkAlerts() {
     let hit = false;
     if (a.guncel && item.guncelDeger >= a.guncel) hit = true;
     if (a.kz && kz >= a.kz) hit = true;
-    if (a.dailyPerc && Math.abs(dailyPerc) >= a.dailyPerc) hit = true; // Mutlak değer eklendi
+    if (a.dailyPerc && Math.abs(dailyPerc) >= a.dailyPerc) hit = true;
     if (hit) {
       const el = Array.from(qsa('.detail-item')).find(n => n.dataset.urun === item.urun);
       if (el) el.classList.add('alert-pulse');
@@ -1095,7 +1144,7 @@ function stopAutoRefresh() {
   }
 }
 
-// DÜZELTİLDİ: Arama fonksiyonu
+// Arama fonksiyonu
 document.addEventListener('DOMContentLoaded', () => {
   const searchInput = qs('#search');
   if (searchInput) {
