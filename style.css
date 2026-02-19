@@ -149,7 +149,7 @@ body {
 .ticker-wrap {
   position: sticky;
   top: 0;
-  z-index: 50;
+  z-index: 70;
   display: flex;
   align-items: center;
   overflow: hidden;
