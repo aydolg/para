@@ -143,7 +143,7 @@ body {
 .ticker-wrap {
   position: sticky;
   top: 0;
-  z-index: 70;
+  z-index: 60;
   display: flex;
   align-items: center;
   overflow: hidden;
@@ -167,13 +167,34 @@ body {
   margin-left: 6px;
   font-variant-numeric: tabular-nums;
 }
+/* style.css - Ticker bölümü */
+
+/* Pürüzsüz akış için içerik duplicate edilmişti, 
+   bu yüzden hız ayarı önemli */
 
 .ticker {
   display: flex;
   gap: 0;
   white-space: nowrap;
-  animation: ticker-move 35s linear infinite;
+  animation: ticker-move 60s linear infinite; /* 60 saniye = yavaş ve rahat */
   will-change: transform;
+}
+
+/* Mobil cihazlarda daha yavaş (daha az ekran alanı) */
+@media (max-width: 640px) {
+  .ticker {
+    animation: ticker-move 45s linear infinite; /* Mobilde biraz daha hızlı */
+  } 
+  .ticker-item {
+    padding: 8px 16px; /* Daha kompakt */
+    font-size: 13px;
+  }
+}
+/* Büyük ekranlarda daha yavaş (daha fazla okuma alanı) */
+@media (min-width: 1400px) {
+  .ticker {
+    animation: ticker-move 80s linear infinite; /* Geniş ekranda yavaş */
+  }
 }
 .ticker-item {
   display: flex;
