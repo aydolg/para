@@ -1,22 +1,27 @@
 /*
-  Portföy Terminali Pro Max · app.js (Optimize Edilmiş)
-  - Kullanılmayan fonksiyonlar kaldırıldı
-  - Tekrarlayan kodlar birleştirildi
-  - Global scope modüle sarıldı
-  - renderPeriods çağrısı eklendi
-  - Inline edilebilir fonksiyonlar optimize edildi
+  Portföy Terminali Pro Max · app.js (Güncellenmiş)
+  Değişiklikler:
+  1. Modal K/Z tablosundan "Dönem Sonu" sütunu kaldırıldı
+  2. Ticker günlük değişimleri gösteriyor (CSV'den)
+  3. Grafik: 12 aylık boş interpolasyon yerine 6 dönem performans barları (gerçek veri)
+  4. Tüm tablo verileri CSV'den çekiliyor, hesaplama yok
 */
 
 const PortfolioApp = (() => {
   'use strict';
 
-  // === KONFİGÜRASYON ===
   const CONFIG = {
     CSV_URL: "https://docs.google.com/spreadsheets/d/e/2PACX-1vQLPFVZn0j8Ygu914QDGRCGKsVy88gWjdk7DFi-jWiydmqYsdGUE4hEAb-R_IBzQmtFZwoMJFcN6rlD/pub?gid=1050165900&single=true&output=csv",
-    REFRESH_RATES: { '30000': '30s', '60000': '1dk', '300000': '5dk' }
+    PERIODS: [
+      { key: 'gunluk', label: 'Günlük', icon: '📅' },
+      { key: 'haftalik', label: 'Haftalık', icon: '📆' },
+      { key: 'aylik', label: 'Aylık', icon: '🗓️' },
+      { key: 'ucAylik', label: '3 Ay', icon: '📊' },
+      { key: 'altiAylik', label: '6 Ay', icon: '📈' },
+      { key: 'birYillik', label: '1 Yıl', icon: '🎯' }
+    ]
   };
 
-  // === DURUM YÖNETİMİ ===
   const state = {
     data: [],
     activeFilter: "ALL",
@@ -26,7 +31,6 @@ const PortfolioApp = (() => {
     autoRefresh: { enabled: false, ms: 60000, timer: null, lastUpdate: null }
   };
 
-  // === YARDIMCI FONKSİYONLAR ===
   const $ = (s, r = document) => r.querySelector(s);
   const $$ = (s, r = document) => [...r.querySelectorAll(s)];
   const cleanStr = (s) => s ? s.toString().trim() : "";
@@ -49,7 +53,6 @@ const PortfolioApp = (() => {
     set: (key, val) => { try { localStorage.setItem(key, JSON.stringify(val)); } catch { } }
   };
 
-  // === TUTMA SÜRESİ HESAPLAMA (Inline) ===
   const getHoldTime = (tarihStr) => {
     if (!tarihStr) return null;
     const parts = tarihStr.trim().split('.');
@@ -184,7 +187,7 @@ const PortfolioApp = (() => {
     }
   };
 
-  // === MOBIL OPTIMIZASYON (Sadeleştirilmiş) ===
+  // === MOBIL OPTIMIZASYON ===
   const Mobile = {
     isMobile: () => window.innerWidth <= 640 || /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent),
     
@@ -241,7 +244,7 @@ const PortfolioApp = (() => {
     }
   };
 
-  // === UI RENDER FONKSIYONLARI ===
+  // === UI RENDER ===
   const UI = {
     showToast(msg, duration = 2500) {
       const t = $('#toast');
@@ -251,26 +254,45 @@ const PortfolioApp = (() => {
       setTimeout(() => t.hidden = true, duration);
     },
 
+    // 4️⃣ TICKER: Günlük değişimleri gösteriyor (CSV'den)
     updateTicker() {
       const ticker = $('#ticker-content');
       if (!ticker || !state.data.length) return;
 
-      const totalValue = sum(state.data, 'guncelDeger');
-      const totalCost = sum(state.data, 'toplamYatirim');
-      const totalKz = totalValue - totalCost;
-      const totalPct = totalCost ? ((totalKz / totalCost) * 100).toFixed(1) : 0;
-
+      // Her ürün için günlük değişim (CSV'den gelen gunluk değeri)
       const items = state.data.map(item => {
-        const kz = item.guncelDeger - item.toplamYatirim;
-        const pct = item.toplamYatirim ? ((kz / item.toplamYatirim) * 100).toFixed(1) : 0;
-        const changeClass = pct >= 0 ? 'pos' : 'neg';
-        const symbol = pct >= 0 ? '▲' : '▼';
-        return `<div class="ticker-item"><span>${item.urun}</span><span class="change ${changeClass}">${symbol} %${Math.abs(pct)}</span></div>`;
+        const change = item.gunluk || 0;
+        const changePct = item.guncelDeger ? ((change / (item.guncelDeger - change)) * 100).toFixed(2) : 0;
+        const isPositive = change >= 0;
+        
+        return `
+          <div class="ticker-item">
+            <span>${item.urun}</span>
+            <span class="change ${isPositive ? 'pos' : 'neg'}">
+              ${isPositive ? '▲' : '▼'} ${formatTRY(change)} (${isPositive ? '+' : ''}${changePct}%)
+            </span>
+          </div>
+        `;
       }).join('');
 
-      const totalItem = `<div class="ticker-item"><span>📊 TOPLAM</span><span class="change ${totalKz >= 0 ? 'pos' : 'neg'}">${totalKz >= 0 ? '▲' : '▼'} %${Math.abs(totalPct)}</span></div>`;
+      // Toplam portföy günlük değişimi
+      const totalChange = sum(state.data, 'gunluk');
+      const totalCurrent = sum(state.data, 'guncelDeger');
+      const totalPrev = totalCurrent - totalChange;
+      const totalChangePct = totalPrev ? ((totalChange / totalPrev) * 100).toFixed(2) : 0;
+      const totalPositive = totalChange >= 0;
 
-      ticker.innerHTML = items + totalItem + items + totalItem; // Seamless loop için duplicate
+      const totalItem = `
+        <div class="ticker-item highlight">
+          <span>📊 PORTFÖY</span>
+          <span class="change ${totalPositive ? 'pos' : 'neg'}">
+            ${totalPositive ? '▲' : '▼'} ${formatTRY(totalChange)} (${totalPositive ? '+' : ''}${totalChangePct}%)
+          </span>
+        </div>
+      `;
+
+      // Sonsuz döngü için duplicate
+      ticker.innerHTML = items + totalItem + items + totalItem;
     },
 
     renderSummary(data) {
@@ -303,13 +325,9 @@ const PortfolioApp = (() => {
     },
 
     renderPeriods(data) {
-      const periods = [
-        ["Günlük", "gunluk"], ["Haftalık", "haftalik"], ["Aylık", "aylik"], 
-        ["3 Ay", "ucAylik"], ["6 Ay", "altiAylik"], ["1 Yıl", "birYillik"]
-      ];
       const current = sum(data, 'guncelDeger');
       
-      $('#periods').innerHTML = periods.map(([label, key]) => {
+      $('#periods').innerHTML = CONFIG.PERIODS.map(({ key, label }) => {
         const change = sum(data, key);
         const prev = current - change;
         const pct = prev ? ((change / prev) * 100).toFixed(1) : 0;
@@ -322,7 +340,6 @@ const PortfolioApp = (() => {
       const portSum = sum(state.data, 'guncelDeger');
       const isMobile = window.innerWidth <= 640;
       
-      // Sıralama
       const sorted = [...data].sort((a, b) => {
         const cmp = {
           'kzDesc': (x, y) => (y.guncelDeger - y.toplamYatirim) - (x.guncelDeger - x.toplamYatirim),
@@ -344,14 +361,22 @@ const PortfolioApp = (() => {
         const adet = item.adet || 1;
         const unitPrice = item.guncelDeger / adet;
         const holdTime = getHoldTime(item.tarih);
+        const dailyChange = item.gunluk || 0;
 
         if (isMobile) {
           return `
             <div class="detail-item" data-urun="${item.urun}">
               <div class="detail-info">
                 <div title="${item.urun}">${item.urun.length > 18 ? item.urun.substring(0, 18) + '...' : item.urun} <span class="weight-badge">%${weight}</span></div>
-                <div><span>💰 ${formatTRY(item.toplamYatirim)}</span><span>📦 ${adet.toLocaleString('tr-TR')}</span>${holdTime ? `<span>⏱ ${holdTime}</span>` : ''}</div>
-                <div style="font-size: 10px; opacity: 0.6;">Birim: ${formatTRY(unitPrice)}</div>
+                <div>
+                  <span>💰 ${formatTRY(item.toplamYatirim)}</span>
+                  <span>📦 ${adet.toLocaleString('tr-TR')}</span>
+                  ${holdTime ? `<span>⏱ ${holdTime}</span>` : ''}
+                </div>
+                <div style="font-size: 10px; opacity: 0.6;">
+                  Birim: ${formatTRY(unitPrice)} | 
+                  <span class="${dailyChange >= 0 ? 'pos' : 'neg'}">Günlük: ${dailyChange >= 0 ? '+' : ''}${formatTRY(dailyChange)}</span>
+                </div>
               </div>
               <div class="detail-values">
                 <div class="detail-val">${formatTRY(item.guncelDeger)}</div>
@@ -369,7 +394,10 @@ const PortfolioApp = (() => {
             <div class="detail-info">
               <div>${item.urun} <span class="weight-badge">· %${weight}</span></div>
               <div>Maliyet: ${formatTRY(item.toplamYatirim)} · Adet: ${adet.toLocaleString('tr-TR')}</div>
-              <div style="font-size: 10px; opacity: 0.7; margin-top: 2px;">Birim: ${formatTRY(unitPrice)}${holdTime ? ` · <span class="hold-badge">⏱ ${holdTime}</span>` : ''}</div>
+              <div style="font-size: 10px; opacity: 0.7; margin-top: 2px;">
+                Birim: ${formatTRY(unitPrice)} · <span class="${dailyChange >= 0 ? 'pos' : 'neg'}">Gün: ${dailyChange >= 0 ? '+' : ''}${formatTRY(dailyChange)}</span>
+                ${holdTime ? ` · <span class="hold-badge">⏱ ${holdTime}</span>` : ''}
+              </div>
             </div>
             <div class="detail-values">
               <div class="detail-val">${formatTRY(item.guncelDeger)}</div>
@@ -494,7 +522,7 @@ const PortfolioApp = (() => {
     }
   };
 
-  // === MODAL YÖNETIMI ===
+  // === MODAL (Güncellenmiş: 1️⃣ Dönem Sonu sütunu kaldırıldı, 3️⃣ Profesyonel grafik eklendi) ===
   const Modal = {
     open(item) {
       const modal = $('#modal');
@@ -508,25 +536,17 @@ const PortfolioApp = (() => {
       const unitCost = item.toplamYatirim / adet;
       const unitCurrent = item.guncelDeger / adet;
 
-      const periods = [
-        { key: 'gunluk', label: 'Günlük' }, { key: 'haftalik', label: 'Haftalık' },
-        { key: 'aylik', label: 'Aylık' }, { key: 'ucAylik', label: '3 Aylık' },
-        { key: 'altiAylik', label: '6 Aylık' }, { key: 'birYillik', label: '1 Yıllık' }
-      ];
-
-      let runningValue = item.guncelDeger;
-      const kzRows = periods.map(p => {
-        const change = item[p.key] || 0;
-        const periodEnd = runningValue;
-        runningValue -= change;
-        const periodKz = periodEnd - item.toplamYatirim;
-        const returnPct = item.toplamYatirim ? ((periodKz / item.toplamYatirim) * 100) : 0;
+      // 1️⃣ Tablo: Sadece Dönem, Değişim, K/Z, Getiri (Dönem Sonu kaldırıldı)
+      // 2️⃣ Veriler direkt CSV'den (item.gunluk, item.haftalik vs)
+      const kzRows = CONFIG.PERIODS.map(({ key, label }) => {
+        const change = item[key] || 0; // CSV'den gelen değer
+        const periodKz = change; // K/Z = Değişim (basit hesaplama)
+        const returnPct = item.toplamYatirim ? ((change / item.toplamYatirim) * 100) : 0;
         
         return `<tr>
-          <td><strong>${p.label}</strong></td>
+          <td><strong>${label}</strong></td>
           <td class="${change >= 0 ? 'pos' : 'neg'}">${change >= 0 ? '+' : ''}${formatTRY(change)}</td>
-          <td>${formatTRY(periodEnd)}</td>
-          <td class="${periodKz >= 0 ? 'pos' : 'neg'}">${formatTRY(periodKz)}</td>
+          <td class="${periodKz >= 0 ? 'pos' : 'neg'}">${periodKz >= 0 ? '+' : ''}${formatTRY(periodKz)}</td>
           <td class="${returnPct >= 0 ? 'pos' : 'neg'}">${returnPct >= 0 ? '+' : ''}${returnPct.toFixed(1)}%</td>
         </tr>`;
       }).join('');
@@ -565,23 +585,35 @@ const PortfolioApp = (() => {
               </div>
             </div>
           </div>
+          
           <div class="stat" style="grid-column: 1 / -1">
-            <div class="small">📈 Tüm Dönemler K/Z</div>
+            <div class="small">📈 Dönemsel Performans (CSV Verileri)</div>
             <div class="kz-table-wrapper">
-              <table class="kz-table"><thead><tr><th>Dönem</th><th>Değişim</th><th>Dönem Sonu</th><th>K/Z</th><th>Getiri</th></tr></thead><tbody>${kzRows}</tbody></table>
+              <table class="kz-table">
+                <thead>
+                  <tr>
+                    <th>Dönem</th>
+                    <th>Değişim</th>
+                    <th>K/Z</th>
+                    <th>Getiri</th>
+                  </tr>
+                </thead>
+                <tbody>${kzRows}</tbody>
+              </table>
             </div>
           </div>
+          
           <div class="stat" style="grid-column: 1 / -1">
-            <div class="small">📊 Aylık Performans (Son 12 Ay)</div>
-            <div class="monthly-chart-container">
-              <canvas class="monthly-chart" id="month-chart"></canvas>
-              <div class="chart-tooltip" id="chart-tooltip"></div>
+            <div class="small">📊 Performans Görselleştirme (Gerçek Veriler)</div>
+            <div class="performance-chart-container" style="height: 200px; margin-top: 10px; position: relative;">
+              <canvas id="perf-chart"></canvas>
             </div>
-            <div class="chart-legend">
-              <span><span class="legend-dot" style="background: rgba(59,130,246,1)"></span>Portföy Değeri</span>
-              <span><span class="legend-dot" style="background: rgba(34,197,94,1)"></span>K/Z</span>
+            <div class="chart-legend" style="margin-top: 8px; font-size: 11px; display: flex; gap: 16px; justify-content: center;">
+              <span><span style="display: inline-block; width: 8px; height: 8px; background: var(--pos); border-radius: 2px; margin-right: 4px;"></span>Pozitif</span>
+              <span><span style="display: inline-block; width: 8px; height: 8px; background: var(--neg); border-radius: 2px; margin-right: 4px;"></span>Negatif</span>
             </div>
           </div>
+          
           <div class="stat" style="grid-column: 1 / -1">
             <div class="small">🔔 Fiyat Uyarıları</div>
             <div class="alert-form">
@@ -597,51 +629,38 @@ const PortfolioApp = (() => {
         </div>
       `;
 
-      this.setupChart(item);
+      this.setupPerformanceChart(item);
       this.setupAlertButtons(item);
       
       modal.classList.add('active');
       modal.hidden = false;
     },
 
-    setupChart(item) {
-      const canvas = $('#month-chart');
-      const tooltip = $('#chart-tooltip');
+    // 3️⃣ Profesyonel performans grafiği (6 dönem için bar chart)
+    setupPerformanceChart(item) {
+      const canvas = $('#perf-chart');
       if (!canvas) return;
 
       const ctx = canvas.getContext('2d');
-      const rect = canvas.parentElement.getBoundingClientRect();
-      canvas.width = rect.width;
-      canvas.height = rect.height;
-      
-      const w = canvas.width, h = canvas.height;
-      const pad = { top: 20, right: 20, bottom: 30, left: 50 };
+      const container = canvas.parentElement;
+      canvas.width = container.clientWidth;
+      canvas.height = container.clientHeight;
+
+      const w = canvas.width;
+      const h = canvas.height;
+      const pad = { top: 30, right: 20, bottom: 40, left: 60 };
       const cw = w - pad.left - pad.right;
       const ch = h - pad.top - pad.bottom;
 
-      const months = ['Oca', 'Şub', 'Mar', 'Nis', 'May', 'Haz', 'Tem', 'Ağu', 'Eyl', 'Eki', 'Kas', 'Ara'];
-      const curMonth = new Date().getMonth();
-
-      const chartData = months.map((m, i) => {
-        const mi = (curMonth - 11 + i + 12) % 12;
-        const prog = i / 11;
-        const base = item.toplamYatirim;
-        const target = item.guncelDeger;
-        return { month: months[mi], value: base + (target - base) * prog, kz: (target - base) * prog };
-      });
-
-      const values = chartData.map(d => d.value);
-      const minVal = Math.min(...values) * 0.98;
-      const maxVal = Math.max(...values) * 1.02;
-      const range = maxVal - minVal || 1;
-
-      const getX = i => pad.left + (i / 11) * cw;
-      const getY = v => pad.top + ch - ((v - minVal) / range) * ch;
+      const values = CONFIG.PERIODS.map(({ key }) => item[key] || 0);
+      const maxVal = Math.max(...values.map(Math.abs), 1);
+      const barWidth = cw / values.length * 0.6;
+      const barGap = cw / values.length * 0.4;
 
       ctx.clearRect(0, 0, w, h);
 
-      // Grid
-      ctx.strokeStyle = 'rgba(255,255,255,0.05)';
+      // Grid çizgileri
+      ctx.strokeStyle = 'rgba(255,255,255,0.1)';
       ctx.lineWidth = 1;
       for (let i = 0; i <= 4; i++) {
         const y = pad.top + (ch / 4) * i;
@@ -651,83 +670,56 @@ const PortfolioApp = (() => {
         ctx.stroke();
       }
 
-      // Area
-      ctx.beginPath();
-      chartData.forEach((d, i) => i === 0 ? ctx.moveTo(getX(i), getY(d.value)) : ctx.lineTo(getX(i), getY(d.value)));
-      ctx.lineTo(getX(11), h - pad.bottom);
-      ctx.lineTo(getX(0), h - pad.bottom);
-      ctx.closePath();
-      const grad = ctx.createLinearGradient(0, pad.top, 0, h - pad.bottom);
-      grad.addColorStop(0, 'rgba(59,130,246,0.3)');
-      grad.addColorStop(1, 'rgba(59,130,246,0)');
-      ctx.fillStyle = grad;
-      ctx.fill();
-
-      // Line
-      ctx.beginPath();
-      ctx.strokeStyle = 'rgba(59,130,246,1)';
+      // Sıfır çizgisi
+      const zeroY = pad.top + (ch / 2);
+      ctx.strokeStyle = 'rgba(255,255,255,0.3)';
       ctx.lineWidth = 2;
-      chartData.forEach((d, i) => i === 0 ? ctx.moveTo(getX(i), getY(d.value)) : ctx.lineTo(getX(i), getY(d.value)));
+      ctx.beginPath();
+      ctx.moveTo(pad.left, zeroY);
+      ctx.lineTo(w - pad.right, zeroY);
       ctx.stroke();
 
-      // Points
-      const points = chartData.map((d, i) => {
-        const x = getX(i), y = getY(d.value);
-        ctx.beginPath();
-        ctx.arc(x, y, 5, 0, Math.PI * 2);
-        ctx.fillStyle = '#0b1220';
-        ctx.fill();
-        ctx.strokeStyle = 'rgba(59,130,246,1)';
-        ctx.lineWidth = 2;
-        ctx.stroke();
-
-        ctx.fillStyle = 'rgba(255,255,255,0.6)';
-        ctx.font = '10px sans-serif';
-        ctx.textAlign = 'center';
-        ctx.fillText(d.month, x, h - 10);
+      // Barlar
+      values.forEach((val, i) => {
+        const x = pad.left + (i * (barWidth + barGap)) + barGap / 2;
+        const barHeight = (val / maxVal) * (ch / 2);
+        const y = val >= 0 ? zeroY - barHeight : zeroY;
         
-        return { x, y, data: d };
+        // Gradient
+        const grad = ctx.createLinearGradient(0, y, 0, val >= 0 ? y + barHeight : y + Math.abs(barHeight));
+        if (val >= 0) {
+          grad.addColorStop(0, '#22c55e');
+          grad.addColorStop(1, 'rgba(34,197,94,0.3)');
+        } else {
+          grad.addColorStop(0, '#ef4444');
+          grad.addColorStop(1, 'rgba(239,68,68,0.3)');
+        }
+        
+        ctx.fillStyle = grad;
+        ctx.fillRect(x, y, barWidth, Math.abs(barHeight));
+        
+        // Değer etiketi
+        ctx.fillStyle = '#fff';
+        ctx.font = 'bold 11px system-ui';
+        ctx.textAlign = 'center';
+        const labelY = val >= 0 ? y - 5 : y + Math.abs(barHeight) + 15;
+        ctx.fillText(formatTRY(val), x + barWidth / 2, labelY);
+        
+        // X ekseni etiketi
+        ctx.fillStyle = 'rgba(255,255,255,0.7)';
+        ctx.font = '10px system-ui';
+        ctx.fillText(CONFIG.PERIODS[i].label, x + barWidth / 2, h - 10);
       });
 
-      // Y-axis labels
-      ctx.fillStyle = 'rgba(255,255,255,0.4)';
-      ctx.font = '9px sans-serif';
+      // Y ekseni etiketleri
+      ctx.fillStyle = 'rgba(255,255,255,0.5)';
+      ctx.font = '9px system-ui';
       ctx.textAlign = 'right';
       for (let i = 0; i <= 4; i++) {
-        const val = minVal + (range / 4) * i;
-        ctx.fillText((val / 1000).toFixed(0) + 'K', pad.left - 5, pad.top + ch - (ch / 4) * i + 3);
+        const val = maxVal * (1 - i / 2);
+        const y = pad.top + (ch / 4) * i;
+        ctx.fillText(formatTRY(val), pad.left - 5, y + 3);
       }
-
-      // Interactions
-      const handleMove = (clientX, clientY) => {
-        const rect = canvas.getBoundingClientRect();
-        const mx = clientX - rect.left;
-        const my = clientY - rect.top;
-
-        const nearest = points.reduce((best, p) => {
-          const dist = Math.abs(p.x - mx);
-          return dist < best.dist && dist < 30 ? { dist, point: p } : best;
-        }, { dist: Infinity, point: null }).point;
-
-        if (nearest) {
-          const d = nearest.data;
-          const getiri = ((d.kz / chartData[0].value) * 100).toFixed(2);
-          tooltip.innerHTML = `<strong>${d.month}</strong><br>Değer: ${formatTRY(d.value)}<br>K/Z: <span style="color:${d.kz >= 0 ? '#22c55e' : '#ef4444'}">${d.kz >= 0 ? '+' : ''}${formatTRY(d.kz)}</span><br>Getiri: %${getiri}`;
-          tooltip.style.left = Math.min(nearest.x + 10, rect.width - 150) + 'px';
-          tooltip.style.top = Math.max(nearest.y - 60, 10) + 'px';
-          tooltip.classList.add('visible');
-        } else {
-          tooltip.classList.remove('visible');
-        }
-      };
-
-      canvas.onmousemove = e => handleMove(e.clientX, e.clientY);
-      canvas.onmouseleave = () => tooltip.classList.remove('visible');
-      canvas.ontouchstart = e => {
-        e.preventDefault();
-        handleMove(e.touches[0].clientX, e.touches[0].clientY);
-        setTimeout(() => tooltip.classList.remove('visible'), 2000);
-      };
     },
 
     setupAlertButtons(item) {
@@ -760,7 +752,7 @@ const PortfolioApp = (() => {
     }
   };
 
-  // === ARAÇ ÇUBUGU (TOOLBAR) ===
+  // === TOOLBAR ===
   const Toolbar = {
     init() {
       const container = $('#toolbar-container');
@@ -800,7 +792,6 @@ const PortfolioApp = (() => {
 
       container.appendChild(toolbar);
 
-      // Event listeners
       $('#sort-select').onchange = e => { state.sortKey = e.target.value; renderAll(); };
       $('#autoref').onchange = e => {
         state.autoRefresh.enabled = e.target.checked;
@@ -812,7 +803,6 @@ const PortfolioApp = (() => {
       };
       $('#ai-analyze-btn').onclick = () => UI.renderAIAnalysis();
 
-      // Modal kapatma
       const modal = $('#modal');
       if (modal) {
         modal.addEventListener('click', e => {
@@ -868,7 +858,7 @@ const PortfolioApp = (() => {
     }
   };
 
-  // === ANA RENDER FONKSIYONU ===
+  // === ANA RENDER ===
   function renderAll() {
     const cacheKey = `filter:${state.activeFilter}`;
     let filtered = state.cache[cacheKey];
@@ -880,7 +870,7 @@ const PortfolioApp = (() => {
 
     UI.renderSummary(filtered);
     UI.renderTypes();
-    UI.renderPeriods(filtered); // EKSİK ÇAĞRI EKLENDI
+    UI.renderPeriods(filtered);
     UI.renderDetails(filtered);
     UI.updateTicker();
     UI.checkAlerts();
@@ -927,7 +917,7 @@ const PortfolioApp = (() => {
       Toolbar.init();
       if (loader) loader.setAttribute('hidden', '');
       
-      renderAll(); // EKSİK ÇAĞRI EKLENDI
+      renderAll();
       Mobile.init();
       UI.showToast(`${state.data.length} ürün yüklendi`);
 
@@ -941,7 +931,6 @@ const PortfolioApp = (() => {
 
   // === EVENT LISTENERS ===
   document.addEventListener('DOMContentLoaded', () => {
-    // Arama fonksiyonu
     const searchInput = $('#search');
     if (searchInput) {
       searchInput.addEventListener('input', e => {
@@ -957,6 +946,5 @@ const PortfolioApp = (() => {
     init();
   });
 
-  // Public API (gerekirse dışarıya açılabilir)
   return { init, renderAll, state };
 })();
