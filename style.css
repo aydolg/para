@@ -157,6 +157,23 @@ body {
   border-bottom: 1px solid rgba(100,125,160,.2);
   backdrop-filter: blur(calc(var(--blur) * .7));
 }
+
+/* Ticker günlük değişim vurgusu */
+.ticker-item.highlight {
+  background: rgba(59, 130, 246, 0.15);
+  border-right: 2px solid var(--accent);
+  font-weight: 800;
+}
+
+.ticker-item .change {
+  font-size: 12px;
+  padding: 2px 8px;
+  border-radius: 4px;
+  background: rgba(0,0,0,0.3);
+  margin-left: 6px;
+  font-variant-numeric: tabular-nums;
+}
+
 .ticker {
   display: flex;
   gap: 0;
