@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Portföy Terminali Pro Max</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <!-- Loader -->
+    <div class="loader" id="loader">
+        <div class="loader-core">
+            <div class="loader-ring"></div>
+            <div class="loader-text">Yükleniyor...</div>
+        </div>
+    </div>
+
+    <!-- Ticker -->
+    <div class="ticker-wrap">
+        <div class="ticker" id="ticker1">
+            <div class="ticker-item">BTC <span class="change pos">+2.4%</span></div>
+            <div class="ticker-item">ETH <span class="change neg">-1.2%</span></div>
+            <div class="ticker-item">XU100 <span class="change pos">+0.8%</span></div>
+            <div class="ticker-item">USD/TRY <span class="change pos">+1.1%</span></div>
+            <div class="ticker-item">EUR/TRY <span class="change neg">-0.3%</span></div>
+            <div class="ticker-item">GRAM ALTIN <span class="change pos">+0.5%</span></div>
+            <div class="ticker-item">GUMUS <span class="change pos">+1.8%</span></div>
+        </div>
+    </div>
+
+    <!-- Ana Uygulama -->
+    <div class="app">
+        <!-- Header -->
+        <header class="header-section">
+            <h1 style="margin:0;font-size:18px">💎 Portföy Terminali</h1>
+        </header>
+
+        <!-- Toolbar -->
+        <div class="toolbar">
+            <div class="card">
+                <div class="toolbar-group">
+                    <select id="portfolioSelect">
+                        <option value="all">Tümü</option>
+                        <option value="stock">Hisse</option>
+                        <option value="crypto">Kripto</option>
+                        <option value="forex">Döviz</option>
+                        <option value="commodity">Emtia</option>
+                    </select>
+                    <select id="periodSelect">
+                        <option value="1d">1 Gün</option>
+                        <option value="1w">1 Hafta</option>
+                        <option value="1m">1 Ay</option>
+                        <option value="3m">3 Ay</option>
+                        <option value="6m">6 Ay</option>
+                        <option value="1y">1 Yıl</option>
+                    </select>
+                </div>
+                <div class="last-update" id="lastUpdate">Son güncelleme: --:--</div>
+            </div>
+        </div>
+
+        <!-- Özet Kartları -->
+        <div class="section-title">Portföy Özeti</div>
+        <div class="grid-summary" id="summaryCards">
+            <div class="card">
+                <div class="small">Toplam Değer</div>
+                <div class="big" id="totalValue">₺0,00</div>
+            </div>
+            <div class="card">
+                <div class="small">Günlük K/Z</div>
+                <div class="big" id="dailyPnL">₺0,00</div>
+            </div>
+            <div class="card">
+                <div class="small">Toplam K/Z</div>
+                <div class="big" id="totalPnL">₺0,00</div>
+            </div>
+        </div>
+
+        <!-- Arama -->
+        <div class="search-row">
+            <input type="text" class="search" id="searchInput" placeholder="Varlık ara...">
+        </div>
+
+        <!-- Detay Listesi -->
+        <div class="section-title">Varlıklar</div>
+        <div class="detail-list" id="assetList"></div>
+
+        <!-- AI Panel -->
+        <div class="ai-panel" id="aiPanel" style="display:none">
+            <div class="ai-header">
+                <span>🤖 AI Analiz</span>
+                <button onclick="toggleAI()">Kapat</button>
+            </div>
+            <div class="ai-content" id="aiContent"></div>
+        </div>
+    </div>
+
+    <!-- Modal -->
+    <div class="modal" id="detailModal" hidden>
+        <div class="modal-backdrop" onclick="closeModal()"></div>
+        <div class="modal-card">
+            <div class="modal-header">
+                <div class="modal-title" id="modalTitle">Detay</div>
+                <button class="modal-close" onclick="closeModal()">×</button>
+            </div>
+            <div class="modal-body" id="modalBody"></div>
+        </div>
+    </div>
+
+    <!-- Toast -->
+    <div class="toast" id="toast" hidden></div>
+
+    <script src="app.js"></script>
+</body>
+</html>
