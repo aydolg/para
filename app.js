@@ -11,7 +11,7 @@ const PortfolioApp = (() => {
   const CONFIG = {
     CSV_URL: "https://docs.google.com/spreadsheets/d/e/2PACX-1vQLPFVZn0j8Ygu914QDGRCGKsVy88gWjdk7DFi-jWiydmqYsdGUE4hEAb-R_IBzQmtFZwoMJFcN6rlD/pub?gid=1050165900&single=true&output=csv",
     // 2️⃣ Fiyat arşivi sayfası (3 aylık grafik için)
-    PRICE_ARCHIVE_URL: "https://docs.google.com/spreadsheets/d/e/2PACX-1vQLPFVZn0j8Ygu914QDGRCGKsVy88gWjdk7DFi-jWiydmqYsdGUE4hEAb-R_IBzQmtFZwoMJFcN6rlD/pub?gid=XXXXXXX&single=true&output=csv", // ❗ gid değerini değiştirin
+    PRICE_ARCHIVE_URL: "https://docs.google.com/spreadsheets/d/e/2PACX-1vQLPFVZn0j8Ygu914QDGRCGKsVy88gWjdk7DFi-jWiydmqYsdGUE4hEAb-R_IBzQmtFZwoMJFcN6rlD/pub?gid=1490096590&single=true&output=csv", // ❗ gid değerini değiştirin
     PERIODS: [
       { key: 'gunluk', label: 'Günlük', icon: '📅', short: '1G' },
       { key: 'haftalik', label: 'Haftalık', icon: '📆', short: '1H' },
