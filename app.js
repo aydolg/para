@@ -1,8 +1,6 @@
 /*
-  Portföy Terminali Pro Max · app.js (Güncellenmiş)
-  Değişiklikler:
-  1. Dönemsel performans tablosu kompakt ve okunaklı
-  2. 3 aylık grafik (90 gün) fiyat_arsivi sayfasından gerçek verilerle
+  Portföy Terminali Pro Max · app.js (Tam Versiyon)
+  Özellikler: Kompakt modal, 6 dönem gerçek veri grafiği, günlük ticker
 */
 
 const PortfolioApp = (() => {
@@ -10,22 +8,18 @@ const PortfolioApp = (() => {
 
   const CONFIG = {
     CSV_URL: "https://docs.google.com/spreadsheets/d/e/2PACX-1vQLPFVZn0j8Ygu914QDGRCGKsVy88gWjdk7DFi-jWiydmqYsdGUE4hEAb-R_IBzQmtFZwoMJFcN6rlD/pub?gid=1050165900&single=true&output=csv",
-    // 2️⃣ Fiyat arşivi sayfası (3 aylık grafik için)
-    PRICE_ARCHIVE_URL: "https://docs.google.com/spreadsheets/d/e/2PACX-1vQLPFVZn0j8Ygu914QDGRCGKsVy88gWjdk7DFi-jWiydmqYsdGUE4hEAb-R_IBzQmtFZwoMJFcN6rlD/pub?gid=1490096590&single=true&output=csv", // ❗ gid değerini değiştirin
     PERIODS: [
-      { key: 'gunluk', label: 'Günlük', icon: '📅', short: '1G' },
-      { key: 'haftalik', label: 'Haftalık', icon: '📆', short: '1H' },
-      { key: 'aylik', label: 'Aylık', icon: '🗓️', short: '1A' },
-      { key: 'ucAylik', label: '3 Ay', icon: '📊', short: '3A' },
-      { key: 'altiAylik', label: '6 Ay', icon: '📈', short: '6A' },
-      { key: 'birYillik', label: '1 Yıl', icon: '🎯', short: '1Y' }
-    ],
-    CHART_DAYS: 90 // 3 ay = 90 gün
+      { key: 'gunluk', label: 'Günlük', short: '1G' },
+      { key: 'haftalik', label: 'Haftalık', short: '1H' },
+      { key: 'aylik', label: 'Aylık', short: '1A' },
+      { key: 'ucAylik', label: '3 Ay', short: '3A' },
+      { key: 'altiAylik', label: '6 Ay', short: '6A' },
+      { key: 'birYillik', label: '1 Yıl', short: '1Y' }
+    ]
   };
 
   const state = {
     data: [],
-    priceArchive: {}, // 2️⃣ Fiyat arşivi verileri {urun: [{tarih, fiyat}, ...]}
     activeFilter: "ALL",
     cache: {},
     alerts: {},
@@ -49,7 +43,6 @@ const PortfolioApp = (() => {
   };
 
   const formatCompact = (n) => {
-    // 1️⃣ Kompakt gösterim için
     const num = Number(n);
     if (isNaN(num)) return "0";
     if (Math.abs(num) >= 1000000) return (num / 1000000).toFixed(1) + 'M';
@@ -70,13 +63,11 @@ const PortfolioApp = (() => {
     if (parts.length !== 3) return null;
     const [g, a, y] = parts.map(Number);
     if ([g, a, y].some(isNaN)) return null;
-    
     const alim = new Date(y, a - 1, g);
     const bugun = new Date();
     const fark = Math.floor((new Date(bugun.getFullYear(), bugun.getMonth(), bugun.getDate()) - 
                             new Date(alim.getFullYear(), alim.getMonth(), alim.getDate())) / (1000 * 60 * 60 * 24));
     if (fark < 0) return null;
-    
     if (fark < 30) return `${fark}g`;
     if (fark < 365) return `${Math.floor(fark / 30)}a`;
     return `${Math.floor(fark / 365)}y`;
@@ -89,7 +80,6 @@ const PortfolioApp = (() => {
       const avgVol = vols.reduce((a, b) => a + b, 0) / vols.length || 0;
       const total = data.reduce((a, b) => a + b.guncelDeger, 0) || 1;
       const concentration = data.map(d => d.guncelDeger / total).reduce((a, w) => a + (w * w), 0);
-      
       return {
         score: Math.min(100, (avgVol * 2 + concentration * 30)),
         level: avgVol > 5 ? 'Yüksek' : avgVol > 2 ? 'Orta' : 'Düşük',
@@ -105,12 +95,10 @@ const PortfolioApp = (() => {
         const momentum = Math.abs(vals[0]) > Math.abs(vals[1]) ? 'Hızlanıyor' : 'Yavaşlıyor';
         const kz = item.guncelDeger - item.toplamYatirim;
         const kzPct = item.toplamYatirim ? ((kz / item.toplamYatirim) * 100) : 0;
-        
         let suggestion = 'İzlemeye devam';
         if (kzPct > 20 && trend === 'Yükseliş') suggestion = 'Kar realizasyonu düşünülebilir';
         else if (kzPct < -15 && trend === 'Düşüş') suggestion = 'Stop-loss değerlendirilebilir';
         else if (momentum === 'Hızlanıyor' && trend === 'Yükseliş') suggestion = 'Pozisyon korunabilir';
-        
         return { urun: item.urun, trend, momentum, suggestion, kzPct };
       });
     },
@@ -119,14 +107,12 @@ const PortfolioApp = (() => {
       const byType = {};
       data.forEach(d => byType[d.tur] = (byType[d.tur] || 0) + d.guncelDeger);
       const maxType = Object.entries(byType).sort((a, b) => b[1] - a[1])[0]?.[0] || 'Karışık';
-      
       const profiles = {
         'Hisse': { name: 'Aktif', desc: 'Yüksek risk', advice: 'Tek hisse riskine dikkat' },
         'Fon': { name: 'Dengeli', desc: 'Orta risk', advice: 'Fon maliyetlerini kontrol edin' },
         'Tahvil': { name: 'Korumacı', desc: 'Düşük risk', advice: 'Enflasyona karşı korunma' },
-        'Kripto': { name: 'Spekülatif', desc: 'Yüksek volatilite', advice: 'Kripto oranını %10\'da tut' }
+        'Kripto': { name: 'Spekülatif', desc: 'Yüksek volatilite', advice: 'Kripto oranını %10da tut' }
       };
-      
       return profiles[maxType] || { name: 'Karışık', desc: 'Çeşitlendirilmiş', advice: 'Dağılım dengeli' };
     },
 
@@ -138,7 +124,6 @@ const PortfolioApp = (() => {
       const trends = this.analyzeTrends(data);
       const personality = this.getPersonality(data);
       const winners = data.filter(d => d.guncelDeger > d.toplamYatirim).length;
-      
       const performance = totalCost ? (totalKz / totalCost) * 100 : 0;
       const seasonIdx = Math.floor(new Date().getMonth() / 3);
       const seasons = [
@@ -192,7 +177,6 @@ const PortfolioApp = (() => {
 
   // === MOBIL ===
   const Mobile = {
-    isMobile: () => window.innerWidth <= 640,
     init() {
       this.addSwipeSupport();
       this.addTouchFeedback();
@@ -364,9 +348,9 @@ const PortfolioApp = (() => {
     }
   };
 
-  // === MODAL (1️⃣ Kompakt tablo + 2️⃣ 3 aylık gerçek veri grafiği) ===
+  // === MODAL (Çalışan 6 Dönem Grafiği) ===
   const Modal = {
-    async open(item) {
+    open(item) {
       const modal = $('#modal');
       const body = $('.modal-body', modal);
       const portSum = sum(state.data, 'guncelDeger');
@@ -378,7 +362,7 @@ const PortfolioApp = (() => {
       const unitCost = item.toplamYatirim / adet;
       const unitCurrent = item.guncelDeger / adet;
 
-      // 1️⃣ Kompakt tablo (Dönem Sonu sütunu yok)
+      // Tablo satırları
       const kzRows = CONFIG.PERIODS.map(({ key, label, short }) => {
         const change = item[key] || 0;
         const returnPct = item.toplamYatirim ? ((change / item.toplamYatirim) * 100) : 0;
@@ -422,14 +406,14 @@ const PortfolioApp = (() => {
             </div>
           </div>
           <div class="stat chart-stat" style="grid-column: 1 / -1">
-            <div class="small">📈 3 Aylık Fiyat Hareketi (Gerçek Veriler)</div>
+            <div class="small">📈 Performans Görselleştirme (Gerçek Veriler)</div>
             <div class="chart-container" id="price-chart-container">
               <canvas id="price-chart"></canvas>
-              <div class="chart-overlay">Yükleniyor...</div>
+              <div class="chart-overlay" id="chart-overlay">Grafik yükleniyor...</div>
             </div>
             <div class="chart-info">
-              <span class="chart-badge">90 gün</span>
-              <span class="chart-badge">Günlük kapanış</span>
+              <span class="chart-badge">6 Dönem</span>
+              <span class="chart-badge">CSV Verisi</span>
             </div>
           </div>
           <div class="stat alert-stat" style="grid-column: 1 / -1">
@@ -447,114 +431,78 @@ const PortfolioApp = (() => {
         </div>
       `;
 
-      // 2️⃣ 3 aylık grafik yükle
-      await this.loadPriceChart(item);
+      // Modal açıldıktan sonra grafiği çiz (animasyon bitince)
+      requestAnimationFrame(() => {
+        setTimeout(() => this.drawPeriodChart(item), 100);
+      });
+
       this.setupAlertButtons(item);
       modal.classList.add('active');
       modal.hidden = false;
     },
 
-    // 2️⃣ 3 aylık fiyat grafiği (fiyat_arsivi sayfasından)
-    async loadPriceChart(item) {
-      const container = $('#price-chart-container');
+    drawPeriodChart(item) {
       const canvas = $('#price-chart');
-      const overlay = $('.chart-overlay', container);
+      const overlay = $('#chart-overlay');
       
-      if (!canvas) return;
-
-      // Veri kontrolü
-      let priceData = state.priceArchive[item.urun];
-      
-      // Veri yoksa veya eskiyse çek
-      if (!priceData || priceData.length === 0) {
-        try {
-          overlay.textContent = 'Veri çekiliyor...';
-          priceData = await this.fetchPriceData(item.urun);
-          state.priceArchive[item.urun] = priceData;
-        } catch (e) {
-          overlay.textContent = 'Veri bulunamadı';
-          console.error('Fiyat verisi çekilemedi:', e);
-          return;
-        }
-      }
-
-      // Son 90 günü al
-      const last90Days = priceData.slice(-CONFIG.CHART_DAYS);
-      
-      if (last90Days.length === 0) {
-        overlay.textContent = 'Yetersiz veri';
+      if (!canvas) {
+        console.error('Canvas bulunamadı');
         return;
       }
 
-      overlay.style.display = 'none';
-      this.drawPriceChart(canvas, last90Days, item);
-    },
+      // CSV'den gelen 6 dönem verisi
+      const periodData = CONFIG.PERIODS.map(({ key, label }) => ({
+        label: label.replace(' ', '\n'), // 2 satır için
+        shortLabel: label,
+        value: item[key] || 0
+      }));
 
-    async fetchPriceData(urun) {
-      // ❗ Gerçek implementasyonda CSV'den çekilecek
-      // Şimdilik mock data döndürüyor (gerçek URL'yi CONFIG'e ekleyin)
-      
-      /* Gerçek implementasyon:
-      const resp = await fetch(`${CONFIG.PRICE_ARCHIVE_URL}&t=${Date.now()}`);
-      const text = await resp.text();
-      const parsed = Papa.parse(text.trim(), { header: true, skipEmptyLines: true });
-      return parsed.data
-        .filter(r => r['urun'] === urun)
-        .map(r => ({ tarih: r['tarih'], fiyat: toNumber(r['fiyat']) }))
-        .sort((a, b) => new Date(a.tarih) - new Date(b.tarih));
-      */
-      
-      // Mock data (test için)
-      const mockData = [];
-      const basePrice = state.data.find(d => d.urun === urun)?.guncelDeger || 100000;
-      for (let i = 90; i >= 0; i--) {
-        const date = new Date();
-        date.setDate(date.getDate() - i);
-        const randomChange = (Math.random() - 0.5) * 0.02; // ±%1 değişim
-        const price = basePrice * (1 + randomChange * (90 - i) / 90);
-        mockData.push({
-          tarih: date.toISOString().split('T')[0],
-          fiyat: price
-        });
-      }
-      return mockData;
-    },
+      console.log('Grafik verileri:', periodData);
 
-    drawPriceChart(canvas, data, item) {
-      const ctx = canvas.getContext('2d');
+      // Container boyutlarını al
       const container = canvas.parentElement;
-      
-      // Yüksek DPI için ölçekleme
-      const dpr = window.devicePixelRatio || 1;
       const rect = container.getBoundingClientRect();
+      
+      if (rect.width === 0 || rect.height === 0) {
+        console.error('Container boyutları sıfır:', rect);
+        overlay.textContent = 'Boyut hatası';
+        overlay.classList.add('error');
+        return;
+      }
+
+      // Canvas ayarları (High DPI)
+      const dpr = window.devicePixelRatio || 1;
       canvas.width = rect.width * dpr;
       canvas.height = rect.height * dpr;
       canvas.style.width = rect.width + 'px';
       canvas.style.height = rect.height + 'px';
+
+      const ctx = canvas.getContext('2d');
       ctx.scale(dpr, dpr);
 
       const w = rect.width;
       const h = rect.height;
-      const pad = { top: 20, right: 50, bottom: 30, left: 10 };
+      const pad = { top: 40, right: 20, bottom: 60, left: 60 };
       const cw = w - pad.left - pad.right;
       const ch = h - pad.top - pad.bottom;
 
-      const prices = data.map(d => d.fiyat);
-      const minPrice = Math.min(...prices) * 0.995;
-      const maxPrice = Math.max(...prices) * 1.005;
-      const range = maxPrice - minPrice || 1;
+      // Maksimum değer (pozitif ve negatif ayrı ayrı)
+      const maxPositive = Math.max(...periodData.map(d => Math.max(0, d.value)), 1);
+      const maxNegative = Math.max(...periodData.map(d => Math.max(0, -d.value)), 1);
+      const maxVal = Math.max(maxPositive, maxNegative);
 
+      // Temizle
       ctx.clearRect(0, 0, w, h);
+      overlay.style.display = 'none';
 
-      // Gradyan arka plan
-      const bgGrad = ctx.createLinearGradient(0, pad.top, 0, h - pad.bottom);
-      bgGrad.addColorStop(0, 'rgba(59,130,246,0.05)');
-      bgGrad.addColorStop(1, 'rgba(59,130,246,0)');
-      ctx.fillStyle = bgGrad;
-      ctx.fillRect(pad.left, pad.top, cw, ch);
+      // Başlık
+      ctx.fillStyle = '#fff';
+      ctx.font = 'bold 13px system-ui';
+      ctx.textAlign = 'center';
+      ctx.fillText(`${item.urun} - Dönemsel Değişim Analizi`, w / 2, 25);
 
-      // Izgara çizgileri (yatay)
-      ctx.strokeStyle = 'rgba(255,255,255,0.05)';
+      // Grid çizgileri (yatay)
+      ctx.strokeStyle = 'rgba(255,255,255,0.08)';
       ctx.lineWidth = 1;
       for (let i = 0; i <= 4; i++) {
         const y = pad.top + (ch / 4) * i;
@@ -564,97 +512,97 @@ const PortfolioApp = (() => {
         ctx.stroke();
       }
 
-      // Fiyat çizgisi (area)
-      const areaPath = new Path2D();
-      data.forEach((d, i) => {
-        const x = pad.left + (i / (data.length - 1)) * cw;
-        const y = pad.top + ch - ((d.fiyat - minPrice) / range) * ch;
-        if (i === 0) areaPath.moveTo(x, y);
-        else areaPath.lineTo(x, y);
+      // Sıfır çizgisi (orta, kalın)
+      const zeroY = pad.top + (ch / 2);
+      ctx.strokeStyle = 'rgba(255,255,255,0.4)';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(pad.left, zeroY);
+      ctx.lineTo(w - pad.right, zeroY);
+      ctx.stroke();
+
+      // Bar ayarları
+      const barCount = periodData.length;
+      const barWidth = (cw / barCount) * 0.65;
+      const barGap = (cw / barCount) * 0.35;
+
+      // Barları çiz
+      periodData.forEach((d, i) => {
+        const x = pad.left + (i * (barWidth + barGap)) + barGap / 2;
+        const barHeight = (Math.abs(d.value) / maxVal) * (ch / 2);
+        const y = d.value >= 0 ? zeroY - barHeight : zeroY;
+        const isPositive = d.value >= 0;
+        
+        // Gradient oluştur
+        const grad = ctx.createLinearGradient(0, y, 0, isPositive ? y + barHeight : y + barHeight);
+        if (isPositive) {
+          grad.addColorStop(0, '#22c55e');
+          grad.addColorStop(0.7, 'rgba(34,197,94,0.6)');
+          grad.addColorStop(1, 'rgba(34,197,94,0.2)');
+        } else {
+          grad.addColorStop(0, '#ef4444');
+          grad.addColorStop(0.7, 'rgba(239,68,68,0.6)');
+          grad.addColorStop(1, 'rgba(239,68,68,0.2)');
+        }
+        
+        // Bar gölgesi
+        ctx.fillStyle = 'rgba(0,0,0,0.3)';
+        ctx.fillRect(x + 3, y + 3, barWidth, barHeight);
+
+        // Bar
+        ctx.fillStyle = grad;
+        ctx.fillRect(x, y, barWidth, barHeight);
+        
+        // Bar kenarı
+        ctx.strokeStyle = isPositive ? '#22c55e' : '#ef4444';
+        ctx.lineWidth = 1.5;
+        ctx.strokeRect(x, y, barWidth, barHeight);
+
+        // Değer etiketi (barın üzerinde)
+        ctx.fillStyle = '#fff';
+        ctx.font = 'bold 11px system-ui';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'bottom';
+        const labelY = isPositive ? y - 6 : y + barHeight + 16;
+        ctx.fillText(formatCompact(d.value), x + barWidth / 2, labelY);
+
+        // X ekseni etiketi (dönem adı)
+        ctx.fillStyle = 'rgba(255,255,255,0.8)';
+        ctx.font = '10px system-ui';
+        ctx.textBaseline = 'top';
+        const lines = d.shortLabel.split(' ');
+        lines.forEach((line, lineIdx) => {
+          ctx.fillText(line, x + barWidth / 2, h - pad.bottom + 10 + (lineIdx * 14));
+        });
       });
-      
-      // Area doldurma
-      const lastX = pad.left + cw;
-      const lastY = pad.top + ch - ((data[data.length - 1].fiyat - minPrice) / range) * ch;
-      areaPath.lineTo(lastX, h - pad.bottom);
-      areaPath.lineTo(pad.left, h - pad.bottom);
-      areaPath.closePath();
-      
-      const areaGrad = ctx.createLinearGradient(0, pad.top, 0, h - pad.bottom);
-      areaGrad.addColorStop(0, 'rgba(59,130,246,0.3)');
-      areaGrad.addColorStop(1, 'rgba(59,130,246,0)');
-      ctx.fillStyle = areaGrad;
-      ctx.fill(areaPath);
 
-      // Fiyat çizgisi (stroke)
-      ctx.beginPath();
-      data.forEach((d, i) => {
-        const x = pad.left + (i / (data.length - 1)) * cw;
-        const y = pad.top + ch - ((d.fiyat - minPrice) / range) * ch;
-        if (i === 0) ctx.moveTo(x, y);
-        else ctx.lineTo(x, y);
-      });
-      ctx.strokeStyle = '#60a5fa';
-      ctx.lineWidth = 2;
-      ctx.lineCap = 'round';
-      ctx.lineJoin = 'round';
-      ctx.stroke();
-
-      // Başlangıç ve bitiş noktaları
-      const startY = pad.top + ch - ((data[0].fiyat - minPrice) / range) * ch;
-      const endY = pad.top + ch - ((data[data.length - 1].fiyat - minPrice) / range) * ch;
-
-      // Başlangıç noktası (yeşil/kırmızı)
-      ctx.beginPath();
-      ctx.arc(pad.left, startY, 4, 0, Math.PI * 2);
-      ctx.fillStyle = data[data.length - 1].fiyat >= data[0].fiyat ? '#22c55e' : '#ef4444';
-      ctx.fill();
-      ctx.strokeStyle = '#fff';
-      ctx.lineWidth = 2;
-      ctx.stroke();
-
-      // Bitiş noktası (büyük, parlak)
-      ctx.beginPath();
-      ctx.arc(lastX, endY, 6, 0, Math.PI * 2);
-      ctx.fillStyle = data[data.length - 1].fiyat >= data[0].fiyat ? '#22c55e' : '#ef4444';
-      ctx.fill();
-      ctx.strokeStyle = '#fff';
-      ctx.lineWidth = 2;
-      ctx.stroke();
-
-      // Fiyat etiketleri (sağ taraf)
-      ctx.fillStyle = 'rgba(255,255,255,0.7)';
-      ctx.font = '11px system-ui';
-      ctx.textAlign = 'left';
+      // Y ekseni etiketleri
+      ctx.fillStyle = 'rgba(255,255,255,0.6)';
+      ctx.font = '10px system-ui';
+      ctx.textAlign = 'right';
       ctx.textBaseline = 'middle';
-      
-      // Max fiyat
-      ctx.fillText(formatCompact(maxPrice), w - pad.right + 5, pad.top);
-      // Min fiyat
-      ctx.fillText(formatCompact(minPrice), w - pad.right + 5, h - pad.bottom);
-      // Son fiyat (vurgulu)
-      ctx.fillStyle = data[data.length - 1].fiyat >= data[0].fiyat ? '#22c55e' : '#ef4444';
-      ctx.font = 'bold 12px system-ui';
-      ctx.fillText(formatCompact(data[data.length - 1].fiyat), w - pad.right + 5, endY);
-
-      // X ekseni tarihleri (haftalık gösterim)
-      ctx.fillStyle = 'rgba(255,255,255,0.5)';
-      ctx.font = '9px system-ui';
-      ctx.textAlign = 'center';
-      const step = Math.floor(data.length / 6);
-      for (let i = 0; i < data.length; i += step) {
-        const x = pad.left + (i / (data.length - 1)) * cw;
-        const date = new Date(data[i].tarih);
-        const label = `${date.getDate()}/${date.getMonth() + 1}`;
-        ctx.fillText(label, x, h - pad.bottom + 15);
+      for (let i = 0; i <= 4; i++) {
+        const val = maxVal * (1 - i / 2);
+        const y = pad.top + (ch / 4) * i;
+        ctx.fillText(formatCompact(val), pad.left - 8, y);
       }
 
-      // Getiri yüzdesi (başlık altında)
-      const totalReturn = ((data[data.length - 1].fiyat - data[0].fiyat) / data[0].fiyat) * 100;
-      ctx.fillStyle = totalReturn >= 0 ? '#22c55e' : '#ef4444';
-      ctx.font = 'bold 14px system-ui';
-      ctx.textAlign = 'center';
-      ctx.fillText(`${totalReturn >= 0 ? '+' : ''}${totalReturn.toFixed(2)}%`, w / 2, pad.top - 5);
+      // Pozitif/Negatif göstergesi
+      ctx.fillStyle = '#22c55e';
+      ctx.beginPath();
+      ctx.arc(w - 30, 20, 5, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = 'rgba(255,255,255,0.7)';
+      ctx.font = '10px system-ui';
+      ctx.textAlign = 'left';
+      ctx.fillText('Pozitif', w - 20, 20);
+
+      ctx.fillStyle = '#ef4444';
+      ctx.beginPath();
+      ctx.arc(w - 30, 35, 5, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = 'rgba(255,255,255,0.7)';
+      ctx.fillText('Negatif', w - 20, 35);
     },
 
     setupAlertButtons(item) {
